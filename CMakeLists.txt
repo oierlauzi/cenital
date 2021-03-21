@@ -25,7 +25,12 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_dependencies(${PROJECT_NAME} shaders)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/)
 target_include_directories(${PROJECT_NAME} PRIVATE ${SHADER_INCLUDE_DIR}/)
-target_link_libraries(${PROJECT_NAME} PUBLIC zuazo zuazo-ffmpeg)
+target_link_libraries(
+	${PROJECT_NAME} PUBLIC 
+	zuazo zuazo-window zuazo-ffmpeg zuazo-compositor
+	avutil avformat avcodec swscale
+	glfw pthread dl
+)
 
 # Install the executable
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

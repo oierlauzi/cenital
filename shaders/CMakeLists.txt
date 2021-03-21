@@ -7,8 +7,14 @@ if(NOT GLSLANGVALIDATOR_EXECUTABLE)
 endif()
 
 #Find Zuazo's shader library
-set(ZUAZO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
+find_path(ZUAZO_INCLUDE_DIR zuazo/)
+if(NOT ZUAZO_INCLUDE_DIR)
+	message(FATAL_ERROR "Zuazo is not present on the system")
+endif()
+
 message(STATUS "Zuazo found at: ${ZUAZO_INCLUDE_DIR}")
+
+
 
 #Get all the shaders on this path
 file(GLOB SHADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/*.frag)
