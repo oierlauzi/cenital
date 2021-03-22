@@ -211,26 +211,9 @@ struct KeyerImpl {
 			resources->uniformBuffer.waitCompletion(vulkan);
 		}
 
-		void recreate(	Graphics::RenderPass renderPass,
-						BlendingMode blendingMode ) 
-		{
-			auto newPipeline = createPipeline(
-				vulkan, 
-				pipelineLayout, 
-				renderPass,
-				blendingMode, 
-				fragmentConstants
-			);
-
-			if(pipeline.use_count() == 1) {
-				//Just this instance
-				assert(pipeline);
-				*pipeline = std::move(newPipeline);
-			} else {
-				//There is another instance or it has not been created
-				pipeline = Utils::makeShared<vk::UniquePipeline>(std::move(newPipeline));
-			}
-			
+		void recreate() {
+			//Force pipeline creation
+			keyFrameDescriptorSetLayout = nullptr;
 		}
 
 		void draw(	Graphics::CommandBuffer& cmd, 
@@ -238,7 +221,8 @@ struct KeyerImpl {
 					const Video& fillFrame,
 					ScalingFilter filter,
 					Graphics::RenderPass renderPass,
-					BlendingMode blendingMode ) 
+					BlendingMode blendingMode,
+					RenderingLayer renderingLayer ) 
 		{				
 			assert(resources);			
 			assert(keyFrame);
@@ -269,7 +253,7 @@ struct KeyerImpl {
 				assert(fragmentConstants.sameKeyFill == sameKeyFill);
 
 				//Configure the samplers for propper operation
-				configureSamplers(*keyFrame, *fillFrame, filter, renderPass, blendingMode);
+				configureSamplers(*keyFrame, *fillFrame, filter, renderPass, blendingMode, renderingLayer);
 				assert(keyFrameDescriptorSetLayout);
 				assert(fillFrameDescriptorSetLayout);
 				assert(pipelineLayout);
@@ -415,7 +399,8 @@ struct KeyerImpl {
 								const Graphics::Frame& fillFrame, 
 								ScalingFilter filter,
 								Graphics::RenderPass renderPass,
-								BlendingMode blendingMode ) 
+								BlendingMode blendingMode,
+								RenderingLayer renderingLayer ) 
 		{
 			const auto newKeyDescriptorSetLayout = keyFrame.getDescriptorSetLayout(filter);
 			const auto newFillDescriptorSetLayout = fillFrame.getDescriptorSetLayout(filter);
@@ -424,8 +409,28 @@ struct KeyerImpl {
 			{
 				keyFrameDescriptorSetLayout = newKeyDescriptorSetLayout;
 				fillFrameDescriptorSetLayout = newFillDescriptorSetLayout;
+
+				//Recreate stuff
 				pipelineLayout = createPipelineLayout(vulkan, keyFrameDescriptorSetLayout, fillFrameDescriptorSetLayout);
-				recreate(renderPass, blendingMode);
+				auto newPipeline = createPipeline(
+					vulkan, 
+					pipelineLayout, 
+					renderPass,
+					blendingMode, 
+					renderingLayer,
+					fragmentConstants
+				);
+
+				//Write changes
+				if(pipeline.use_count() == 1) {
+					//Pipeline is not shared. Its safe to overwrite
+					*pipeline = std::move(newPipeline);
+				} else {
+					//Pipeline shared by others or not created. Create a new one
+					pipeline = Utils::makeShared<vk::UniquePipeline>(std::move(newPipeline));
+				}
+
+
 			}
 		}
 
@@ -538,8 +543,7 @@ struct KeyerImpl {
 			const auto data = reinterpret_cast<std::byte*>(&fragmentConstants);
 			*reinterpret_cast<T*>(data + FRAGMENT_SPECIALIZATION_LAYOUT[id].offset) = value;
 
-			//Force pipeline creation
-			keyFrameDescriptorSetLayout = nullptr;
+			recreate();
 		}
 
 		template<typename T>
@@ -702,6 +706,7 @@ struct KeyerImpl {
 													vk::PipelineLayout layout,
 													Graphics::RenderPass renderPass,
 													BlendingMode blendingMode,
+													RenderingLayer renderingLayer,
 													const FragmentConstants& fragmentConstants )
 		{
 			static //So that its ptr can be used as an identifier
@@ -818,18 +823,10 @@ struct KeyerImpl {
 				false, false										//Alpha to coverage, alpha to 1 enable
 			);
 
-			constexpr vk::PipelineDepthStencilStateCreateInfo depthStencil(
-				{},													//Flags
-				true, true, 										//Depth test enable, write
-				vk::CompareOp::eLessOrEqual,						//Depth compare op
-				false,												//Depth bounds test
-				false, 												//Stencil enabled
-				{}, {},												//Stencil operation state front, back
-				0.0f, 0.0f											//min, max depth bounds
-			);
+			const auto depthStencil = Graphics::getDepthStencilConfiguration(renderingLayer);
 
 			const std::array colorBlendAttachments = {
-				Graphics::toVulkan(blendingMode)
+				Graphics::getBlendingConfiguration(blendingMode)
 			};
 
 			const vk::PipelineColorBlendStateCreateInfo colorBlend(
@@ -1071,7 +1068,8 @@ struct KeyerImpl {
 					fillFrame,
 					keyer.getScalingFilter(),
 					keyer.getRenderPass(),
-					keyer.getBlendingMode()
+					keyer.getBlendingMode(),
+					keyer.getRenderingLayer()
 				);
 			}
 
@@ -1105,6 +1103,11 @@ struct KeyerImpl {
 	void blendingModeCallback(LayerBase& base, BlendingMode mode) {
 		auto& keyer = static_cast<Keyer&>(base);
 		recreateCallback(keyer, keyer.getRenderPass(), mode);
+	}
+
+	void renderingLayerCallback(LayerBase& base, RenderingLayer) {
+		auto& keyer = static_cast<Keyer&>(base);
+		recreateCallback(keyer, keyer.getRenderPass(), keyer.getBlendingMode());
 	}
 
 	void renderPassCallback(LayerBase& base, Graphics::RenderPass renderPass) {
@@ -1460,10 +1463,7 @@ private:
 
 			if(opened && isValid) {
 				//It remains valid
-				opened->recreate(
-					renderPass,
-					blendingMode
-				);
+				opened->recreate();
 			} else if(opened && !isValid) {
 				//It has become invalid
 				keyIn.reset();
@@ -1502,6 +1502,7 @@ Keyer::Keyer(	Instance& instance,
 		std::bind(&KeyerImpl::transformCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::opacityCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::blendingModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&KeyerImpl::renderingLayerCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::hasChangedCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::drawCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
 		std::bind(&KeyerImpl::renderPassCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
