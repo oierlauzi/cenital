@@ -1,10 +1,11 @@
-#include "Keyer.h"
+#include <Keyer.h>
 
-#include "Shapes.h"
+#include <Shapes.h>
 
 #include <zuazo/Signal/Input.h>
 #include <zuazo/Signal/Output.h>
 #include <zuazo/Utils/StaticId.h>
+#include <zuazo/Utils/Hasher.h>
 #include <zuazo/Utils/Pool.h>
 #include <zuazo/Graphics/StagedBuffer.h>
 #include <zuazo/Graphics/UniformBuffer.h>
@@ -44,7 +45,7 @@ struct KeyerImpl {
 			FragmentConstants(	VkBool32 sameKeyFill = false, 
 								VkBool32 lumaKeyEnabled = false, 
 								VkBool32 chromaKeyEnabled = false,
-								uint32_t linearKeyType = 0 ) noexcept
+								int32_t linearKeyType = 0 ) noexcept
 				: sameKeyFill(sameKeyFill)
 				, lumaKeyEnabled(lumaKeyEnabled)
 				, chromaKeyEnabled(chromaKeyEnabled)
@@ -55,7 +56,7 @@ struct KeyerImpl {
 			VkBool32		sameKeyFill;
 			VkBool32		lumaKeyEnabled;
 			VkBool32		chromaKeyEnabled;
-			uint32_t		linearKeyType;
+			int32_t			linearKeyType;
 
 		};
 
@@ -184,7 +185,7 @@ struct KeyerImpl {
 		vk::DescriptorSetLayout								keyFrameDescriptorSetLayout;
 		vk::DescriptorSetLayout								fillFrameDescriptorSetLayout;
 		vk::PipelineLayout									pipelineLayout;
-		std::shared_ptr<vk::UniquePipeline>					pipeline;
+		vk::Pipeline										pipeline;
 
 		Open(	const Graphics::Vulkan& vulkan,
 				Math::Vec2f size,
@@ -258,10 +259,9 @@ struct KeyerImpl {
 				assert(fillFrameDescriptorSetLayout);
 				assert(pipelineLayout);
 				assert(pipeline);
-				assert(*pipeline);
 
 				//Bind the pipeline and its descriptor sets
-				cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, **pipeline);
+				cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
 				cmd.bindVertexBuffers(
 					VERTEX_BUFFER_BINDING,											//Binding
@@ -306,7 +306,7 @@ struct KeyerImpl {
 				);
 
 				//Add the dependencies to the command buffer
-				cmd.addDependencies({ resources, pipeline, keyFrame, fillFrame });
+				cmd.addDependencies({ resources, keyFrame, fillFrame });
 
 			}		
 		}
@@ -412,7 +412,7 @@ struct KeyerImpl {
 
 				//Recreate stuff
 				pipelineLayout = createPipelineLayout(vulkan, keyFrameDescriptorSetLayout, fillFrameDescriptorSetLayout);
-				auto newPipeline = createPipeline(
+				pipeline = createPipeline(
 					vulkan, 
 					pipelineLayout, 
 					renderPass,
@@ -420,17 +420,6 @@ struct KeyerImpl {
 					renderingLayer,
 					fragmentConstants
 				);
-
-				//Write changes
-				if(pipeline.use_count() == 1) {
-					//Pipeline is not shared. Its safe to overwrite
-					*pipeline = std::move(newPipeline);
-				} else {
-					//Pipeline shared by others or not created. Create a new one
-					pipeline = Utils::makeShared<vk::UniquePipeline>(std::move(newPipeline));
-				}
-
-
 			}
 		}
 
@@ -561,11 +550,25 @@ struct KeyerImpl {
 		}
 
 
-		static uint32_t calculateLinearKeyType(bool enabled, bool inverted, Keyer::LinearKeyChannel channel) {
-			uint32_t result;
+		static int32_t calculateLinearKeyType(bool enabled, bool inverted, Keyer::LinearKeyChannel channel) {
+			int32_t result;
 
 			if(enabled) {
-				result = static_cast<uint32_t>(channel);
+				switch (channel) {
+				case Keyer::LinearKeyChannel::KEY_R:	result = 0x01; break;
+				case Keyer::LinearKeyChannel::KEY_G:	result = 0x02; break;
+				case Keyer::LinearKeyChannel::KEY_B:	result = 0x03; break;
+				case Keyer::LinearKeyChannel::KEY_A:	result = 0x04; break;
+				case Keyer::LinearKeyChannel::KEY_Y:	result = 0x05; break;
+				
+				case Keyer::LinearKeyChannel::FILL_R:	result = 0x06; break;
+				case Keyer::LinearKeyChannel::FILL_G:	result = 0x07; break;
+				case Keyer::LinearKeyChannel::FILL_B:	result = 0x08; break;
+				case Keyer::LinearKeyChannel::FILL_A:	result = 0x09; break;
+				case Keyer::LinearKeyChannel::FILL_Y:	result = 0x0A; break;
+
+				default:								result = 0x00; break; //Not expected	
+				}
 
 				if(inverted) {
 					result = -result;
@@ -678,8 +681,11 @@ struct KeyerImpl {
 														vk::DescriptorSetLayout keyFrameDescriptorSetLayout,
 														vk::DescriptorSetLayout fillFrameDescriptorSetLayout ) 
 		{
-			static std::unordered_map<vk::DescriptorSetLayout, const Utils::StaticId> ids; //TODO consider both frames
-			const auto& id = ids[fillFrameDescriptorSetLayout]; //TODO make it thread safe
+			using Index = std::tuple<vk::DescriptorSetLayout, vk::DescriptorSetLayout>;
+			static std::unordered_map<Index, const Utils::StaticId, Utils::Hasher<Index>> ids; 
+
+			const Index index(keyFrameDescriptorSetLayout, fillFrameDescriptorSetLayout);
+			const auto& id = ids[index]; //TODO make it thread safe
 
 			auto result = vulkan.createPipelineLayout(id);
 			if(!result) {
@@ -702,169 +708,195 @@ struct KeyerImpl {
 			return result;
 		}
 
-		static vk::UniquePipeline createPipeline(	const Graphics::Vulkan& vulkan,
-													vk::PipelineLayout layout,
-													Graphics::RenderPass renderPass,
-													BlendingMode blendingMode,
-													RenderingLayer renderingLayer,
-													const FragmentConstants& fragmentConstants )
+		static vk::Pipeline createPipeline(	const Graphics::Vulkan& vulkan,
+											vk::PipelineLayout layout,
+											Graphics::RenderPass renderPass,
+											BlendingMode blendingMode,
+											RenderingLayer renderingLayer,
+											const FragmentConstants& fragmentConstants )
 		{
-			static //So that its ptr can be used as an identifier
-			#include <keyer_vert.h>
-			const size_t vertId = reinterpret_cast<uintptr_t>(keyer_vert);
-			static
-			#include <keyer_frag.h>
-			const size_t fragId = reinterpret_cast<uintptr_t>(keyer_frag);
+			using Index = std::tuple<	vk::PipelineLayout,
+										vk::RenderPass,
+										BlendingMode,
+										RenderingLayer,
+										std::array<std::byte, sizeof(FragmentConstants)> >;
+			static std::unordered_map<Index, const Utils::StaticId, Utils::Hasher<Index>> ids;
 
-			//Try to retrive modules from cache
-			auto vertexShader = vulkan.createShaderModule(vertId);
-			if(!vertexShader) {
-				//Modules isn't in cache. Create it
-				vertexShader = vulkan.createShaderModule(vertId, keyer_vert);
+			//Create a index for gathering the id
+			std::array<std::byte, sizeof(FragmentConstants)> constantData;
+			std::memcpy(&constantData, &fragmentConstants, constantData.size());
+			const Index index(
+				layout,
+				renderPass.get(),
+				blendingMode,
+				renderingLayer,
+				constantData
+			);
+
+			//Try to retrieve the result from cache
+			const auto& id = ids[index];
+			auto result = vulkan.createGraphicsPipeline(id);
+			if(!result) {
+				//No luck, create it
+				static //So that its ptr can be used as an identifier
+				#include <keyer_vert.h>
+				const size_t vertId = reinterpret_cast<uintptr_t>(keyer_vert);
+				static
+				#include <keyer_frag.h>
+				const size_t fragId = reinterpret_cast<uintptr_t>(keyer_frag);
+
+				//Try to retrive modules from cache
+				auto vertexShader = vulkan.createShaderModule(vertId);
+				if(!vertexShader) {
+					//Modules isn't in cache. Create it
+					vertexShader = vulkan.createShaderModule(vertId, keyer_vert);
+				}
+
+				auto fragmentShader = vulkan.createShaderModule(fragId);
+				if(!fragmentShader) {
+					//Modules isn't in cache. Create it
+					fragmentShader = vulkan.createShaderModule(fragId, keyer_frag);
+				}
+
+				assert(vertexShader);
+				assert(fragmentShader);
+
+				//Set the specialization constants
+				const vk::SpecializationInfo specializationInfo(
+					FRAGMENT_SPECIALIZATION_LAYOUT.size(), FRAGMENT_SPECIALIZATION_LAYOUT.data(),
+					sizeof(fragmentConstants), &fragmentConstants
+				);
+
+				//Define the shader modules
+				constexpr auto SHADER_ENTRY_POINT = "main";
+				const std::array shaderStages = {
+					vk::PipelineShaderStageCreateInfo(		
+						{},												//Flags
+						vk::ShaderStageFlagBits::eVertex,				//Shader type
+						vertexShader,									//Shader handle
+						SHADER_ENTRY_POINT,								//Shader entry point
+						nullptr											//Specialization constants
+					),							
+					vk::PipelineShaderStageCreateInfo(		
+						{},												//Flags
+						vk::ShaderStageFlagBits::eFragment,				//Shader type
+						fragmentShader,									//Shader handle
+						SHADER_ENTRY_POINT, 							//Shader entry point
+						&specializationInfo								//Specialization constants
+					),						
+				};
+
+				constexpr std::array vertexBindings = {
+					vk::VertexInputBindingDescription(
+						VERTEX_BUFFER_BINDING,
+						sizeof(Vertex),
+						vk::VertexInputRate::eVertex
+					)
+				};
+
+				constexpr std::array vertexAttributes = {
+					vk::VertexInputAttributeDescription(
+						VERTEX_LOCATION_POSITION,
+						VERTEX_BUFFER_BINDING,
+						vk::Format::eR32G32Sfloat,
+						offsetof(Vertex, position)
+					),
+					vk::VertexInputAttributeDescription(
+						VERTEX_LOCATION_TEXCOORD,
+						VERTEX_BUFFER_BINDING,
+						vk::Format::eR32G32Sfloat,
+						offsetof(Vertex, texCoord)
+					),
+					vk::VertexInputAttributeDescription(
+						VERTEX_LOCATION_KLM,
+						VERTEX_BUFFER_BINDING,
+						vk::Format::eR32G32B32Sfloat,
+						offsetof(Vertex, klm)
+					)
+				};
+
+				const vk::PipelineVertexInputStateCreateInfo vertexInput(
+					{},
+					vertexBindings.size(), vertexBindings.data(),		//Vertex bindings
+					vertexAttributes.size(), vertexAttributes.data()	//Vertex attributes
+				);
+
+				constexpr vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
+					{},													//Flags
+					vk::PrimitiveTopology::eTriangleStrip,				//Topology
+					true												//Restart enable
+				);
+
+				constexpr vk::PipelineViewportStateCreateInfo viewport(
+					{},													//Flags
+					1, nullptr,											//Viewports (dynamic)
+					1, nullptr											//Scissors (dynamic)
+				);
+
+				constexpr vk::PipelineRasterizationStateCreateInfo rasterizer(
+					{},													//Flags
+					false, 												//Depth clamp enabled
+					false,												//Rasterizer discard enable
+					vk::PolygonMode::eFill,								//Polygon mode
+					vk::CullModeFlagBits::eNone, 						//Cull faces
+					vk::FrontFace::eClockwise,							//Front face direction
+					false, 0.0f, 0.0f, 0.0f,							//Depth bias
+					1.0f												//Line width
+				);
+
+				constexpr vk::PipelineMultisampleStateCreateInfo multisample(
+					{},													//Flags
+					vk::SampleCountFlagBits::e1,						//Sample count
+					false, 1.0f,										//Sample shading enable, min sample shading
+					nullptr,											//Sample mask
+					false, false										//Alpha to coverage, alpha to 1 enable
+				);
+
+				const auto depthStencil = Graphics::getDepthStencilConfiguration(renderingLayer);
+
+				const std::array colorBlendAttachments = {
+					Graphics::getBlendingConfiguration(blendingMode)
+				};
+
+				const vk::PipelineColorBlendStateCreateInfo colorBlend(
+					{},													//Flags
+					false,												//Enable logic operation
+					vk::LogicOp::eCopy,									//Logic operation
+					colorBlendAttachments.size(), colorBlendAttachments.data() //Blend attachments
+				);
+
+				constexpr std::array dynamicStates = {
+					vk::DynamicState::eViewport,
+					vk::DynamicState::eScissor
+				};
+
+				const vk::PipelineDynamicStateCreateInfo dynamicState(
+					{},													//Flags
+					dynamicStates.size(), dynamicStates.data()			//Dynamic states
+				);
+
+				const vk::GraphicsPipelineCreateInfo createInfo(
+					{},													//Flags
+					shaderStages.size(), shaderStages.data(),			//Shader stages
+					&vertexInput,										//Vertex input
+					&inputAssembly,										//Vertex assembly
+					nullptr,											//Tesselation
+					&viewport,											//Viewports
+					&rasterizer,										//Rasterizer
+					&multisample,										//Multisampling
+					&depthStencil,										//Depth / Stencil tests
+					&colorBlend,										//Color blending
+					&dynamicState,										//Dynamic states
+					layout,												//Pipeline layout
+					renderPass.get(), 0,								//Renderpasses
+					nullptr, 0											//Inherit
+				);
+
+				result = vulkan.createGraphicsPipeline(id, createInfo);
 			}
 
-			auto fragmentShader = vulkan.createShaderModule(fragId);
-			if(!fragmentShader) {
-				//Modules isn't in cache. Create it
-				fragmentShader = vulkan.createShaderModule(fragId, keyer_frag);
-			}
-
-			assert(vertexShader);
-			assert(fragmentShader);
-
-			//Set the specialization constants
-			const vk::SpecializationInfo specializationInfo(
-				FRAGMENT_SPECIALIZATION_LAYOUT.size(), FRAGMENT_SPECIALIZATION_LAYOUT.data(),
-				sizeof(fragmentConstants), &fragmentConstants
-			);
-
-			//Define the shader modules
-			constexpr auto SHADER_ENTRY_POINT = "main";
-			const std::array shaderStages = {
-				vk::PipelineShaderStageCreateInfo(		
-					{},												//Flags
-					vk::ShaderStageFlagBits::eVertex,				//Shader type
-					vertexShader,									//Shader handle
-					SHADER_ENTRY_POINT,								//Shader entry point
-					nullptr											//Specialization constants
-				),							
-				vk::PipelineShaderStageCreateInfo(		
-					{},												//Flags
-					vk::ShaderStageFlagBits::eFragment,				//Shader type
-					fragmentShader,									//Shader handle
-					SHADER_ENTRY_POINT, 							//Shader entry point
-					&specializationInfo								//Specialization constants
-				),						
-			};
-
-			constexpr std::array vertexBindings = {
-				vk::VertexInputBindingDescription(
-					VERTEX_BUFFER_BINDING,
-					sizeof(Vertex),
-					vk::VertexInputRate::eVertex
-				)
-			};
-
-			constexpr std::array vertexAttributes = {
-				vk::VertexInputAttributeDescription(
-					VERTEX_LOCATION_POSITION,
-					VERTEX_BUFFER_BINDING,
-					vk::Format::eR32G32Sfloat,
-					offsetof(Vertex, position)
-				),
-				vk::VertexInputAttributeDescription(
-					VERTEX_LOCATION_TEXCOORD,
-					VERTEX_BUFFER_BINDING,
-					vk::Format::eR32G32Sfloat,
-					offsetof(Vertex, texCoord)
-				),
-				vk::VertexInputAttributeDescription(
-					VERTEX_LOCATION_KLM,
-					VERTEX_BUFFER_BINDING,
-					vk::Format::eR32G32B32Sfloat,
-					offsetof(Vertex, klm)
-				)
-			};
-
-			const vk::PipelineVertexInputStateCreateInfo vertexInput(
-				{},
-				vertexBindings.size(), vertexBindings.data(),		//Vertex bindings
-				vertexAttributes.size(), vertexAttributes.data()	//Vertex attributes
-			);
-
-			constexpr vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
-				{},													//Flags
-				vk::PrimitiveTopology::eTriangleStrip,				//Topology
-				true												//Restart enable
-			);
-
-			constexpr vk::PipelineViewportStateCreateInfo viewport(
-				{},													//Flags
-				1, nullptr,											//Viewports (dynamic)
-				1, nullptr											//Scissors (dynamic)
-			);
-
-			constexpr vk::PipelineRasterizationStateCreateInfo rasterizer(
-				{},													//Flags
-				false, 												//Depth clamp enabled
-				false,												//Rasterizer discard enable
-				vk::PolygonMode::eFill,								//Polygon mode
-				vk::CullModeFlagBits::eNone, 						//Cull faces
-				vk::FrontFace::eClockwise,							//Front face direction
-				false, 0.0f, 0.0f, 0.0f,							//Depth bias
-				1.0f												//Line width
-			);
-
-			constexpr vk::PipelineMultisampleStateCreateInfo multisample(
-				{},													//Flags
-				vk::SampleCountFlagBits::e1,						//Sample count
-				false, 1.0f,										//Sample shading enable, min sample shading
-				nullptr,											//Sample mask
-				false, false										//Alpha to coverage, alpha to 1 enable
-			);
-
-			const auto depthStencil = Graphics::getDepthStencilConfiguration(renderingLayer);
-
-			const std::array colorBlendAttachments = {
-				Graphics::getBlendingConfiguration(blendingMode)
-			};
-
-			const vk::PipelineColorBlendStateCreateInfo colorBlend(
-				{},													//Flags
-				false,												//Enable logic operation
-				vk::LogicOp::eCopy,									//Logic operation
-				colorBlendAttachments.size(), colorBlendAttachments.data() //Blend attachments
-			);
-
-			constexpr std::array dynamicStates = {
-				vk::DynamicState::eViewport,
-				vk::DynamicState::eScissor
-			};
-
-			const vk::PipelineDynamicStateCreateInfo dynamicState(
-				{},													//Flags
-				dynamicStates.size(), dynamicStates.data()			//Dynamic states
-			);
-
-			static const Utils::StaticId pipelineId;
-			const vk::GraphicsPipelineCreateInfo createInfo(
-				{},													//Flags
-				shaderStages.size(), shaderStages.data(),			//Shader stages
-				&vertexInput,										//Vertex input
-				&inputAssembly,										//Vertex assembly
-				nullptr,											//Tesselation
-				&viewport,											//Viewports
-				&rasterizer,										//Rasterizer
-				&multisample,										//Multisampling
-				&depthStencil,										//Depth / Stencil tests
-				&colorBlend,										//Color blending
-				&dynamicState,										//Dynamic states
-				layout,												//Pipeline layout
-				renderPass.get(), 0,								//Renderpasses
-				nullptr, static_cast<uint32_t>(pipelineId)			//Inherit
-			);
-
-			return vulkan.createGraphicsPipeline(createInfo);
+			assert(result);
+			return result;
 		}
 
 	};

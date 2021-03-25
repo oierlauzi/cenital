@@ -23,22 +23,22 @@ struct ChromaKeyParameters {
 };
 
 //Specialization constants and normal constants
-const int LINEAR_KEY_DISABLED = 0;
-const int LINEAR_KEY_KEY_R = 1;
-const int LINEAR_KEY_KEY_G = 2;
-const int LINEAR_KEY_KEY_B = 3;
-const int LINEAR_KEY_KEY_A = 4;
-const int LINEAR_KEY_KEY_Y = 5;
-const int LINEAR_KEY_FILL_R = 6;
-const int LINEAR_KEY_FILL_G = 7;
-const int LINEAR_KEY_FILL_B = 8;
-const int LINEAR_KEY_FILL_A = 9;
-const int LINEAR_KEY_FILL_Y = 10;
+const int LINEAR_KEY_DISABLED 	= 0x00;
+const int LINEAR_KEY_KEY_R 		= 0x01;
+const int LINEAR_KEY_KEY_G 		= 0x02;
+const int LINEAR_KEY_KEY_B 		= 0x03;
+const int LINEAR_KEY_KEY_A 		= 0x04;
+const int LINEAR_KEY_KEY_Y 		= 0x05;
+const int LINEAR_KEY_FILL_R 	= 0x06;
+const int LINEAR_KEY_FILL_G 	= 0x07;
+const int LINEAR_KEY_FILL_B 	= 0x08;
+const int LINEAR_KEY_FILL_A 	= 0x09;
+const int LINEAR_KEY_FILL_Y 	= 0x0A;
 
 layout(constant_id = 0)  const bool sameKeyFill = false;
 layout(constant_id = 1)  const bool lumaKeyEnabled = false;
 layout(constant_id = 2)  const bool chromaKeyEnabled = false;
-layout(constant_id = 3)  const int linearKeyType = 0; //TODO Update in push ctes
+layout(constant_id = 3)  const int linearKeyType = 0;
 
 //Vertex I/O
 layout(location = 0) in vec2 in_texCoord;
@@ -71,11 +71,12 @@ float lumaKeyAlpha(in LumaKeyParameters parameters, in vec3 keyColor) {
 	if(parameters.minThreshHold < 0.0f) {
 		//Negative threshold signals inversion
 		if(parameters.minThreshHold > parameters.maxThreshHold) {
-			//Ensures that he parameter provided to smoothstep is valid
-			alpha = smoothstep(-parameters.minThreshHold, -parameters.maxThreshHold, -luminance);
+			//Ensures that he parameter provided to smoothstep is valid.
+			//Note that min and max are negative, so max comes first
+			alpha = smoothstep(parameters.maxThreshHold, parameters.minThreshHold, -luminance);
 		} else {
 			//Simple threshlold
-			alpha = luminance > parameters.minThreshHold ? 0.0f : 1.0f;
+			alpha = luminance > -parameters.minThreshHold ? 0.0f : 1.0f;
 		}
 	} else {
 		//Positive threshold, normal operation
@@ -187,7 +188,7 @@ void main() {
 	if(chromaKeyEnabled) {
 		alpha *= chromaKeyAlpha(chromaKeyparameters, keyColor.rgb);
 	}
-	if(linearKeyType != 0) {
+	if(linearKeyType != LINEAR_KEY_DISABLED) {
 		alpha *= linearKeyAlpha(linearKeyType, keyColor, fillColor);
 	} 
 

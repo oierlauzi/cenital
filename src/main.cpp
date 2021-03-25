@@ -1,4 +1,4 @@
-#include "Keyer.h" //TODO remove from here
+#include "MixTransition.h" //TODO remove from here
 
 #include <zuazo/Instance.h>
 #include <zuazo/Modules/Window.h>
@@ -17,10 +17,6 @@
 using namespace Cenital;
 
 int main(int argc, const char* argv[]) {
-	if(argc != 2) {
-		std::terminate();
-	} 
-
 	//Instantiate the Zuazo library
 	Zuazo::Instance::ApplicationInfo::Modules modules {
 		Zuazo::Modules::Window::get(),
@@ -56,7 +52,7 @@ int main(int argc, const char* argv[]) {
 		Zuazo::Utils::MustBe<Zuazo::DepthStencilFormat>(Zuazo::DepthStencilFormat::NONE) //Not interested in the depth buffer
 	);
 
-	const auto windowSize = Zuazo::Math::Vec2i(1280, 720);
+	const auto windowSize = Zuazo::Math::Vec2i(1920, 1080);
 	const auto& monitor = Zuazo::Consumers::WindowRenderer::NO_MONITOR; //Not interested in the full-screen mode
 
 	//Construct the window object
@@ -68,48 +64,53 @@ int main(int argc, const char* argv[]) {
 		windowSize,						//Window size (in screen coordinates)
 		monitor							//Monitor for setting fullscreen
 	);
-	window.setResizeable(false); //Disable resizeing, as extra care needs to be taken
 
 	//Open the window (now becomes visible)
 	window.asyncOpen(lock);
 
-	//Construct the keyer
-	Keyer keyer(
-		instance,
-		"Test keyer",
-		&window,
-		window.getVideoMode().getFrameDescriptor().calculateSize() //Will set it fullscreen
-	);
-
-	//Configure the keyer alike
-	keyer.setScalingMode(Zuazo::ScalingMode::CROPPED);
-	keyer.setScalingFilter(Zuazo::ScalingFilter::NEAREST);
-	keyer.setOpacity(1.0f);
-	keyer.setChromaKeyEnabled(true);
-
-	//Open the keyer
-	keyer.asyncOpen(lock);
-
-	//Create a video source
-	Zuazo::Sources::FFmpegClip videoClip(
-		instance,
-		"Video Source",
+	Zuazo::Sources::FFmpegClip clip1(
+		instance, 
+		"Clip 1",
 		Zuazo::VideoMode::ANY,
-		std::string(argv[1])
+		argv[1]
 	);
+	clip1.setRepeat(Zuazo::ClipBase::Repeat::REPEAT);
+	clip1.play();
+	clip1.asyncOpen(lock);
 
-	videoClip.play();
-	videoClip.setRepeat(Zuazo::ClipBase::Repeat::REPEAT);
-	videoClip.asyncOpen(lock);
+	Zuazo::Sources::FFmpegClip clip2(
+		instance, 
+		"Clip 2",
+		Zuazo::VideoMode::ANY,
+		argv[2]
+	);
+	clip2.setRepeat(Zuazo::ClipBase::Repeat::REPEAT);
+	clip2.play();
+	clip2.asyncOpen(lock);
 
-	//Create a player for playing the clip
-	Zuazo::Player clipPlayer(instance, &videoClip);
-	clipPlayer.enable();
+	MixTransition transition(instance, "DVE Transition");
+	transition.setRepeat(Zuazo::ClipBase::Repeat::PING_PONG);
+	transition.play();
+	transition.setEffect(MixTransition::Effect::BLACK);
+	transition.setRenderer(&window);
+	transition.setSize(window.getSize());
+	transition.asyncOpen(lock);
 
-	//Route the signal
-	Zuazo::Signal::getInput<Zuazo::Video>(keyer, "keyIn") << videoClip;
-	Zuazo::Signal::getInput<Zuazo::Video>(keyer, "fillIn") << videoClip;
-	window.setLayers({keyer});
+	transition.getPrevIn() << clip1;
+	transition.getPostIn() << clip2;
+
+	Zuazo::Player player1(instance, &clip1);
+	Zuazo::Player player2(instance, &clip2);
+	Zuazo::Player player3(instance, &transition);
+	player1.enable();
+	player2.enable();
+	player3.enable();
+
+	window.setViewportSizeCallback(
+		std::bind(&TransitionBase::setSize, &transition, std::placeholders::_2)
+	);
+	window.setLayers(transition.getLayers());
+
 
 	//Wait
 	lock.unlock();

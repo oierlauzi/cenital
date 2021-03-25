@@ -21,7 +21,7 @@ class Keyer
 public:
 
 	enum class LinearKeyChannel {
-		KEY_R = 1,
+		KEY_R,
 		KEY_G,
 		KEY_B,
 		KEY_A,
