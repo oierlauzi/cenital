@@ -11,7 +11,6 @@ namespace Cenital {
 struct DVETransitionImpl;
 class DVETransition
 	: private Zuazo::Utils::Pimpl<DVETransitionImpl>
-	, public Zuazo::ZuazoBase
 	, public TransitionBase
 {
 	friend DVETransitionImpl;
@@ -20,6 +19,7 @@ public:
 		UNCOVER,
 		COVER,
 		SLIDE,
+		ROTATE_3D,
 		
 		//Add here
 

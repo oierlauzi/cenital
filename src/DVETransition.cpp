@@ -84,9 +84,8 @@ struct DVETransitionImpl {
 
 
 
-	void refreshCallback(ClipBase& base) {
-		auto& dveTransition = static_cast<DVETransition&>(base);
-		assert(&owner.get() == &dveTransition);
+	void updateCallback() {
+		auto& dveTransition = owner.get();
 		
 		//Obtain the progress
 		const auto progress = static_cast<float>(dveTransition.getProgress());
@@ -110,6 +109,10 @@ struct DVETransitionImpl {
 			configureSlide(viewportSize, progress, true, true);
 			break;
 
+		case DVETransition::Effect::ROTATE_3D:
+			configureRotate3D(progress);
+			break;
+
 		default:
 			break;
 		}
@@ -123,7 +126,7 @@ struct DVETransitionImpl {
 	void sizeCallback(TransitionBase&, Math::Vec2f size) {
 		prevSurface.setSize(size);
 		postSurface.setSize(size);
-		refreshCallback(owner);
+		updateCallback();
 	}
 
 
@@ -142,7 +145,7 @@ struct DVETransitionImpl {
 
 	void setAngle(float angle) {
 		this->angle = angle;
-		refreshCallback(owner);
+		updateCallback();
 	}
 
 	float getAngle() const noexcept {
@@ -152,7 +155,7 @@ struct DVETransitionImpl {
 
 	void setEffect(DVETransition::Effect effect) {
 		this->effect = effect;
-		refreshCallback(owner);
+		updateCallback();
 	}
 
 	DVETransition::Effect getEffect() const noexcept {
@@ -211,35 +214,71 @@ private:
 		
 	}
 
+	void configureRotate3D(float progress) {
+		//Incactive transform is set when the frame is not visible
+		constexpr Math::Transformf inactiveTransform(
+			Math::Vec3f(0),
+			Math::Quaternionf(),
+			Math::Vec3f(0)
+		);
+
+		//Obtain the axis on which the transition is performed. 
+		//The quadrant angle is used as it makes it more intuitive
+		const auto axisAngle = Math::deg2rad(-this->angle); //"-" because Vulkan's Y axis is inverted
+		const Math::Vec3f axis(Math::sin(axisAngle), Math::cos(axisAngle), 0);		
+
+		//Configure the transformations
+		if(progress < 0.5f) {
+			//Prev surface is only visible on the first half
+			const float rotationAngle = progress*M_PI;
+			const Math::Transformf transform(
+				Math::Vec3f(0),
+				Math::rotateAbout(axis, rotationAngle, Math::normalized),
+				Math::Vec3f(1)
+			);
+			prevSurface.setTransform(transform);
+		} else {
+			prevSurface.setTransform(inactiveTransform);
+		}
+
+		if(progress > 0.5f) {
+			//Post surface is only visible on the second half. Rotation angle is inverted
+			//so that the result is not flipped
+			const float rotationAngle = (1-progress)*M_PI;
+			const Math::Transformf transform(
+				Math::Vec3f(0),
+				Math::rotateAbout(axis, rotationAngle, Math::normalized),
+				Math::Vec3f(1)
+			);
+			postSurface.setTransform(transform);
+		} else {
+			postSurface.setTransform(inactiveTransform);
+		}
+	}
+
 };
 
 
 DVETransition::DVETransition(	Instance& instance,
 								std::string name )
 	: Utils::Pimpl<DVETransitionImpl>({}, *this, instance)
-	, Zuazo::ZuazoBase(
+	, TransitionBase(
 		instance,
 		std::move(name),
-		{},
+		(*this)->prevIn.getInput(),
+		(*this)->postIn.getInput(),
+		(*this)->layerReferences,
 		std::bind(&DVETransitionImpl::moved, std::ref(**this), std::placeholders::_1),
 		std::bind(&DVETransitionImpl::open, std::ref(**this), std::placeholders::_1),
 		std::bind(&DVETransitionImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&DVETransitionImpl::close, std::ref(**this), std::placeholders::_1),
-		std::bind(&DVETransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
-	, TransitionBase(
-		(*this)->prevIn.getInput(),
-		(*this)->postIn.getInput(),
-		(*this)->layerReferences,
-		std::bind(&DVETransitionImpl::refreshCallback, std::ref(**this), std::placeholders::_1),
+		std::bind(&DVETransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&DVETransitionImpl::updateCallback, std::ref(**this)),
 		std::bind(&DVETransitionImpl::rendererCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&DVETransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
-	//Register pads
-	ZuazoBase::registerPad(getPrevIn());
-	ZuazoBase::registerPad(getPostIn());
-
 	//Leave it in a known state
-	(*this)->refreshCallback(*this);
+	(*this)->updateCallback();
 }
 
 DVETransition::DVETransition(DVETransition&& other) = default;
