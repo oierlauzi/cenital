@@ -1084,6 +1084,40 @@ struct KeyerImpl {
 		return false;
 	}
 
+	bool hasAlphaCallback(const LayerBase& base) const noexcept {
+		const auto& keyer = static_cast<const Keyer&>(base);
+		assert(&owner.get() == &keyer); Utils::ignore(keyer);
+
+		bool result;
+
+		//HACK using last element instead of pull for optimization reasons.
+		//If changing from a alpha-less format to a alpha-ed format, a frame
+		//with potential incorrect ordering will be rendered once. 
+		const auto& lastElement = fillIn.getLastElement();
+
+		if(lastElement) {
+			if(getLumaKeyEnabled()) {
+				result = true;
+			} else if(getChromaKeyEnabled()) {
+				result = true;
+			} else if(getLinearKeyEnabled()) {
+				if(getLinearKeyChannel() == Keyer::LinearKeyChannel::FILL_A) {
+					result = Zuazo::hasAlpha(lastElement->getDescriptor().getColorFormat());
+				} else {
+					result = true;
+				}
+			} else {
+				//Default to no
+				result = false;
+			}
+		} else {
+			//No frame. Nothing will be rendered
+			result = false;
+		}
+
+		return result;
+	}
+
 	void drawCallback(const LayerBase& base, const RendererBase& renderer, Graphics::CommandBuffer& cmd) {
 		const auto& keyer = static_cast<const Keyer&>(base);
 		assert(&owner.get() == &keyer); (void)(keyer);
@@ -1536,6 +1570,7 @@ Keyer::Keyer(	Instance& instance,
 		std::bind(&KeyerImpl::blendingModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::renderingLayerCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::hasChangedCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&KeyerImpl::hasAlphaCallback, std::ref(**this), std::placeholders::_1),
 		std::bind(&KeyerImpl::drawCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
 		std::bind(&KeyerImpl::renderPassCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 	, VideoScalerBase(

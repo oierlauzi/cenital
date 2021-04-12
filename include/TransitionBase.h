@@ -1,6 +1,7 @@
 #pragma once
 
 #include <zuazo/Video.h>
+#include <zuazo/ZuazoBase.h>
 #include <zuazo/ClipBase.h>
 #include <zuazo/RendererBase.h>
 #include <zuazo/Signal/Input.h>
@@ -12,7 +13,8 @@
 namespace Cenital {
 
 class TransitionBase 
-	: public Zuazo::ClipBase
+	: public Zuazo::ZuazoBase
+	, public Zuazo::ClipBase
 {
 public:
 	using Input = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
@@ -20,10 +22,17 @@ public:
 	using RendererCallback = std::function<void(TransitionBase&, const Zuazo::RendererBase*)>;
 	using SizeCallback = std::function<void(TransitionBase&, Zuazo::Math::Vec2f)>;
 
-	TransitionBase(	Input& prevIn,
+	TransitionBase(	Zuazo::Instance& instance, 
+					std::string name,
+					Input& prevIn,
 					Input& postIn,
 					Layers layers,
-					RefreshCallback refreshCbk = {},
+					MoveCallback moveCbk = {},
+					OpenCallback openCbk = {},
+					AsyncOpenCallback asyncOpenCbk = {},
+					CloseCallback closeCbk = {},
+					AsyncCloseCallback asyncCloseCbk = {},
+					UpdateCallback updateCbk = {},
 					RendererCallback rendererCbk = {},
 					SizeCallback sizeCbk = {} );
 	TransitionBase(const TransitionBase& other) = default;

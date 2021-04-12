@@ -167,6 +167,10 @@ void main() {
 	//Obtain th signed distance to the curve
 	const float sDist = bezier3_signed_distance(in_klm);
 	const float sDistOpacity = clamp(0.5f - sDist, 0.0f, 1.0f);
+	if(sDistOpacity <= 0.0f) {
+		//Discard everything which is outside
+		discard;
+	}
 
 	//Sample the key frame
 	const vec4 keyColor = frame_texture(2, in_texCoord);
@@ -194,10 +198,6 @@ void main() {
 
 	//Compute the final color
 	out_color = vec4(fillColor.rgb, alpha);
-	if(out_color.a <= 0.0f) {
-		discard;
-	} else {
-		out_color = ct_premultiply_alpha(out_color);
-	}
+	out_color = ct_premultiply_alpha(out_color);
 }
  

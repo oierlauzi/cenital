@@ -1,4 +1,4 @@
-#include "MixTransition.h" //TODO remove from here
+#include "DVETransition.h" //TODO remove from here
 
 #include <zuazo/Instance.h>
 #include <zuazo/Modules/Window.h>
@@ -34,35 +34,20 @@ int main(int argc, const char* argv[]) {
 	Zuazo::Instance instance(std::move(appInfo));
 	std::unique_lock<Zuazo::Instance> lock(instance);
 
-
-	//Construct the desired parameters
-	const Zuazo::VideoMode windowVideoMode(
-		Zuazo::Utils::MustBe<Zuazo::Rate>(Zuazo::Rate(25, 1)), //Just specify the desired rate
-		Zuazo::Utils::Any<Zuazo::Resolution>(),
-		Zuazo::Utils::Any<Zuazo::AspectRatio>(),
-		Zuazo::Utils::Any<Zuazo::ColorPrimaries>(),
-		Zuazo::Utils::Any<Zuazo::ColorModel>(),
-		Zuazo::Utils::Any<Zuazo::ColorTransferFunction>(),
-		Zuazo::Utils::Any<Zuazo::ColorSubsampling>(),
-		Zuazo::Utils::Any<Zuazo::ColorRange>(),
-		Zuazo::Utils::Any<Zuazo::ColorFormat>()	
-	);
-
-	const Zuazo::Utils::Limit<Zuazo::DepthStencilFormat> depthStencil(
-		Zuazo::Utils::MustBe<Zuazo::DepthStencilFormat>(Zuazo::DepthStencilFormat::NONE) //Not interested in the depth buffer
-	);
-
-	const auto windowSize = Zuazo::Math::Vec2i(1920, 1080);
-	const auto& monitor = Zuazo::Consumers::WindowRenderer::NO_MONITOR; //Not interested in the full-screen mode
-
 	//Construct the window object
 	Zuazo::Consumers::WindowRenderer window(
 		instance, 						//Instance
 		"Output Window",				//Layout name
-		windowVideoMode,				//Video mode limits
-		depthStencil,					//Depth buffer limits
-		windowSize,						//Window size (in screen coordinates)
-		monitor							//Monitor for setting fullscreen
+		Zuazo::Math::Vec2i(1920, 1080)	//Window size (in screen coordinates)
+	);
+	
+	//Set the negotiation callback
+	window.setVideoModeNegotiationCallback(
+		[] (Zuazo::VideoBase&, const std::vector<Zuazo::VideoMode>& compatibility) -> Zuazo::VideoMode {
+			auto result = compatibility.front();
+			result.setFrameRate(Zuazo::Utils::MustBe<Zuazo::Rate>(result.getFrameRate().highest()));
+			return result;
+		}
 	);
 
 	//Open the window (now becomes visible)
@@ -71,7 +56,6 @@ int main(int argc, const char* argv[]) {
 	Zuazo::Sources::FFmpegClip clip1(
 		instance, 
 		"Clip 1",
-		Zuazo::VideoMode::ANY,
 		argv[1]
 	);
 	clip1.setRepeat(Zuazo::ClipBase::Repeat::REPEAT);
@@ -81,17 +65,17 @@ int main(int argc, const char* argv[]) {
 	Zuazo::Sources::FFmpegClip clip2(
 		instance, 
 		"Clip 2",
-		Zuazo::VideoMode::ANY,
 		argv[2]
 	);
 	clip2.setRepeat(Zuazo::ClipBase::Repeat::REPEAT);
 	clip2.play();
 	clip2.asyncOpen(lock);
 
-	MixTransition transition(instance, "DVE Transition");
+	DVETransition transition(instance, "DVE Transition");
 	transition.setRepeat(Zuazo::ClipBase::Repeat::PING_PONG);
 	transition.play();
-	transition.setEffect(MixTransition::Effect::BLACK);
+	transition.setEffect(DVETransition::Effect::ROTATE_3D);
+	transition.setAngle(135);
 	transition.setRenderer(&window);
 	transition.setSize(window.getSize());
 	transition.asyncOpen(lock);

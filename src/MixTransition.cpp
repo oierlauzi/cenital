@@ -78,9 +78,8 @@ struct MixTransitionImpl {
 
 
 
-	void refreshCallback(ClipBase& base) {
-		auto& mixTransition = static_cast<MixTransition&>(base);
-		assert(&owner.get() == &mixTransition);
+	void updateCallback() {
+		auto& mixTransition = owner.get();
 		
 		//Obtain the progress
 		const auto progress = static_cast<float>(mixTransition.getProgress());
@@ -118,7 +117,7 @@ struct MixTransitionImpl {
 	void sizeCallback(TransitionBase&, Math::Vec2f size) {
 		prevSurface.setSize(size);
 		postSurface.setSize(size);
-		refreshCallback(owner);
+		updateCallback();
 	}
 
 
@@ -138,7 +137,7 @@ struct MixTransitionImpl {
 
 	void setEffect(MixTransition::Effect effect) {
 		this->effect = effect;
-		refreshCallback(owner);
+		updateCallback();
 	}
 
 	MixTransition::Effect getEffect() const noexcept {
@@ -175,29 +174,23 @@ private:
 MixTransition::MixTransition(	Instance& instance,
 								std::string name )
 	: Utils::Pimpl<MixTransitionImpl>({}, *this, instance)
-	, Zuazo::ZuazoBase(
+	, TransitionBase(
 		instance,
 		std::move(name),
-		{},
+		(*this)->prevIn.getInput(),
+		(*this)->postIn.getInput(),
+		(*this)->layerReferences,
 		std::bind(&MixTransitionImpl::moved, std::ref(**this), std::placeholders::_1),
 		std::bind(&MixTransitionImpl::open, std::ref(**this), std::placeholders::_1),
 		std::bind(&MixTransitionImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixTransitionImpl::close, std::ref(**this), std::placeholders::_1),
-		std::bind(&MixTransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
-	, TransitionBase(
-		(*this)->prevIn.getInput(),
-		(*this)->postIn.getInput(),
-		(*this)->layerReferences,
-		std::bind(&MixTransitionImpl::refreshCallback, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixTransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&MixTransitionImpl::updateCallback, std::ref(**this)),
 		std::bind(&MixTransitionImpl::rendererCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixTransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
-	//Register pads
-	ZuazoBase::registerPad(getPrevIn());
-	ZuazoBase::registerPad(getPostIn());
-
 	//Leave it in a known state
-	(*this)->refreshCallback(*this);
+	(*this)->updateCallback();
 }
 
 MixTransition::MixTransition(MixTransition&& other) = default;

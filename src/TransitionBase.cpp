@@ -2,13 +2,35 @@
 
 namespace Cenital {
 
-TransitionBase::TransitionBase(	Input& prevIn,
+using namespace Zuazo;
+
+TransitionBase::TransitionBase(	Instance& instance, 
+								std::string name,
+								Input& prevIn,
 								Input& postIn,
 								Layers layers,
-								RefreshCallback refreshCbk,
+								MoveCallback moveCbk,
+								OpenCallback openCbk,
+								AsyncOpenCallback asyncOpenCbk,
+								CloseCallback closeCbk,
+								AsyncCloseCallback asyncCloseCbk,
+								UpdateCallback updateCbk,
 								RendererCallback rendererCbk,
 								SizeCallback sizeCbk )
-	: ClipBase(std::chrono::seconds(1), {}, std::move(refreshCbk))
+	: ZuazoBase(
+		instance, 
+		std::move(name), 
+		{}, 
+		std::move(moveCbk), 
+		std::move(openCbk), 
+		std::move(asyncOpenCbk),
+		std::move(closeCbk), 
+		std::move(asyncCloseCbk),
+		std::move(updateCbk) )
+	, ClipBase(
+		std::chrono::seconds(1), 
+		{}, 
+		std::bind(&TransitionBase::update, this) ) //FIXME cref(*this) becomes a dangling reference when moved
 	, m_prevIn(prevIn)
 	, m_postIn(postIn)
 	, m_layers(layers)
@@ -16,8 +38,10 @@ TransitionBase::TransitionBase(	Input& prevIn,
 	, m_size()
 	, m_rendererCallback(std::move(rendererCbk))
 	, m_sizeCallback(std::move(sizeCbk))
-
 {
+	//Register the pads
+	registerPad(prevIn);
+	registerPad(postIn);
 }
 
 
@@ -45,26 +69,26 @@ TransitionBase::Layers TransitionBase::getLayers() const noexcept {
 
 
 
-void TransitionBase::setRenderer(const Zuazo::RendererBase* renderer) {
+void TransitionBase::setRenderer(const RendererBase* renderer) {
 	if(m_renderer != renderer) {
 		m_renderer = renderer;
-		Zuazo::Utils::invokeIf(m_rendererCallback, *this, m_renderer);
+		Utils::invokeIf(m_rendererCallback, *this, m_renderer);
 	}
 }
 
-const Zuazo::RendererBase* TransitionBase::getRenderer() const noexcept {
+const RendererBase* TransitionBase::getRenderer() const noexcept {
 	return m_renderer;
 }
 
 
-void TransitionBase::setSize(Zuazo::Math::Vec2f size) {
+void TransitionBase::setSize(Math::Vec2f size) {
 	if(m_size != size) {
 		m_size = size;
-		Zuazo::Utils::invokeIf(m_sizeCallback, *this, size);
+		Utils::invokeIf(m_sizeCallback, *this, size);
 	}
 }
 
-Zuazo::Math::Vec2f TransitionBase::getSize() const noexcept {
+Math::Vec2f TransitionBase::getSize() const noexcept {
 	return m_size;
 }
 

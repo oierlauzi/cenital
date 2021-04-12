@@ -11,7 +11,6 @@ namespace Cenital {
 struct MixTransitionImpl;
 class MixTransition
 	: private Zuazo::Utils::Pimpl<MixTransitionImpl>
-	, public Zuazo::ZuazoBase
 	, public TransitionBase
 {
 	friend MixTransitionImpl;

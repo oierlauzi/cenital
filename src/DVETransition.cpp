@@ -171,8 +171,9 @@ private:
 		const auto viewportLen = Math::length(viewportSize);
 
 		//Obtain the axis on which the transition is performed
-		const auto angle = Math::deg2rad(-this->angle); //"-" because Vulkan's Y axis is inverted
-		const auto direction = Math::Vec2f(Math::cos(angle), Math::sin(angle));
+		//As vulkan's Y axis is inverted, use a "-" in the sin
+		const auto angle = Math::deg2rad(this->angle);
+		const auto direction = Math::Vec2f(Math::cos(angle), -Math::sin(angle));
 		const auto axis = Math::clamp(
 			viewportLen*direction,
 			-viewportSize,
@@ -224,7 +225,7 @@ private:
 
 		//Obtain the axis on which the transition is performed. 
 		//The quadrant angle is used as it makes it more intuitive
-		const auto axisAngle = Math::deg2rad(-this->angle); //"-" because Vulkan's Y axis is inverted
+		const auto axisAngle = Math::deg2rad(this->angle);
 		const Math::Vec3f axis(Math::sin(axisAngle), Math::cos(axisAngle), 0);		
 
 		//Configure the transformations
