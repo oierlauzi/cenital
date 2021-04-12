@@ -12,6 +12,24 @@ namespace Cenital {
 
 using namespace Zuazo;
 
+static void openHelper(ZuazoBase& base, std::unique_lock<Instance>* lock) {
+	if(lock) {
+		base.asyncOpen(*lock);
+	} else {
+		base.open();
+	}
+}
+
+static void closeHelper(ZuazoBase& base, std::unique_lock<Instance>* lock) {
+	if(lock) {
+		base.asyncClose(*lock);
+	} else {
+		base.close();
+	}
+}
+
+
+
 /*
  * MixEffectImpl
  */
@@ -78,84 +96,56 @@ struct MixEffectImpl {
 		owner = static_cast<MixEffect&>(base);
 	}
 
-	void open(ZuazoBase& base) {
+	void open(ZuazoBase& base, std::unique_lock<Instance>* lock = nullptr) {
 		auto& me = static_cast<MixEffect&>(base);
 		assert(&owner.get() == &me); Utils::ignore(me);
 
-		pgmCompositor.open();
-		pvwCompositor.open();
-		pgmIntermediateCompositor.open();
-		pvwIntermediateCompositor.open();
-		pgmLayer.open();
-		pvwLayer.open();
+		//Open everything
+		openHelper(pgmCompositor, lock);
+		openHelper(pvwCompositor, lock);
+		openHelper(pgmIntermediateCompositor, lock);
+		openHelper(pvwIntermediateCompositor, lock);
+		openHelper(pgmLayer, lock);
+		openHelper(pvwLayer, lock);
+		openHelper(intermediaryLayer, lock);
 
 		if(transition) {
-			transition->open();
+			openHelper(*transition, lock);
 		}
 
 		me.enableRegularUpdate(UPDATE_PRIORITY);
 	}
 
 	void asyncOpen(ZuazoBase& base, std::unique_lock<Instance>& lock) {
-		auto& me = static_cast<MixEffect&>(base);
-		assert(&owner.get() == &me); Utils::ignore(me);
 		assert(lock.owns_lock());
-		
-		pgmCompositor.asyncOpen(lock);
-		pvwCompositor.asyncOpen(lock);
-		pgmIntermediateCompositor.asyncOpen(lock);
-		pvwIntermediateCompositor.asyncOpen(lock);
-		pgmLayer.asyncOpen(lock);
-		pvwLayer.asyncOpen(lock);
-
-		if(transition) {
-			transition->asyncOpen(lock);
-		}
-
-		me.enableRegularUpdate(UPDATE_PRIORITY);
-
+		open(base, &lock);
 		assert(lock.owns_lock());
 	}
 
-	void close(ZuazoBase& base) {
+	void close(ZuazoBase& base, std::unique_lock<Instance>* lock = nullptr) {
 		auto& me = static_cast<MixEffect&>(base);
 		assert(&owner.get() == &me); Utils::ignore(me);
 		
 		me.disableRegularUpdate();
 
 		//Close everyting
-		pgmCompositor.close();
-		pvwCompositor.close();
-		pgmIntermediateCompositor.close();
-		pvwIntermediateCompositor.close();
-		pgmLayer.close();
-		pvwLayer.close();
+		closeHelper(pgmCompositor, lock);
+		closeHelper(pvwCompositor, lock);
+		closeHelper(pgmIntermediateCompositor, lock);
+		closeHelper(pvwIntermediateCompositor, lock);
+		closeHelper(pgmLayer, lock);
+		closeHelper(pvwLayer, lock);
+		closeHelper(intermediaryLayer, lock);
 
 		if(transition) {
-			transition->close();
+			closeHelper(*transition, lock);
 		}
 
 	}
 
 	void asyncClose(ZuazoBase& base, std::unique_lock<Instance>& lock) {
-		auto& me = static_cast<MixEffect&>(base);
-		assert(&owner.get() == &me); Utils::ignore(me);
 		assert(lock.owns_lock());
-
-		me.disableRegularUpdate();
-
-		//Close everyting
-		pgmCompositor.asyncClose(lock);
-		pvwCompositor.asyncClose(lock);
-		pgmIntermediateCompositor.asyncClose(lock);
-		pvwIntermediateCompositor.asyncClose(lock);
-		pgmLayer.asyncClose(lock);
-		pvwLayer.asyncClose(lock);
-
-		if(transition) {
-			transition->asyncClose(lock);
-		}
-
+		close(base, &lock);
 		assert(lock.owns_lock());
 	}
 
@@ -427,9 +417,9 @@ MixEffect::MixEffect(	Zuazo::Instance& instance,
 		std::move(name),
 		{},
 		std::bind(&MixEffectImpl::moved, std::ref(**this), std::placeholders::_1),
-		std::bind(&MixEffectImpl::open, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixEffectImpl::open, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&MixEffectImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		std::bind(&MixEffectImpl::close, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixEffectImpl::close, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&MixEffectImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		{} )
 	, Zuazo::VideoBase(
