@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TransitionBase.h"
+#include "Keyer.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/RendererBase.h>
@@ -22,6 +23,24 @@ public:
 	using Input = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
 	using Output = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Output<Zuazo::Video>>;
 
+	enum class OutputBus {
+		NONE = -1,
+
+		PROGRAM,
+		PREVIEW,
+
+		COUNT,
+	};
+
+	enum class OverlaySlot {
+		NONE = -1,
+
+		UPSTREAM,
+		DOWNSTREAM,
+
+		COUNT
+	};
+
 	static constexpr auto NO_SIGNAL = ~size_t(0);
 
 	MixEffect(	Zuazo::Instance& instance,
@@ -39,27 +58,28 @@ public:
 	Input&									getInput(size_t idx);
 	const Input&							getInput(size_t idx) const;
 
+	Output&									getOutput(OutputBus bus);
+	const Output&							getOutput(OutputBus bus) const;
 	Output&									getProgramOutput() noexcept;
 	const Output&							getProgramOutput() const noexcept;
 	Output&									getPreviewOutput() noexcept;
 	const Output&							getPreviewOutput() const noexcept;
 
+	void									setBackground(OutputBus bus, size_t idx);
+	size_t									getBackground(OutputBus bus) const noexcept;
+
+	void									cut();
+
+	void									setTransitionSlot(OutputBus bus);
+	OutputBus								getTransitionSlot() const noexcept;
 	std::unique_ptr<TransitionBase>			setTransition(std::unique_ptr<TransitionBase> transition);
 	const TransitionBase*					getTransition() const noexcept;
 
-	void									setUpstreamOverlayCount(size_t count);
-	size_t									getUpstreamOverlayCount() const noexcept;
 
-	void									setDownstreamOverlayCount(size_t count);
-	size_t									getDownstreamOverlayCount() const noexcept;
-
-	void									setProgram(size_t idx);
-	size_t									getProgram() const noexcept;
-
-	void									setPreview(size_t idx);
-	size_t									getPreview() const noexcept;
-
-	void									cut();
+	void									setOverlayCount(OverlaySlot slot, size_t count);
+	size_t									getOverlayCount(OverlaySlot slot) const;
+	Keyer&									getOverlay(OverlaySlot slot, size_t idx);
+	const Keyer&							getOverlay(OverlaySlot slot, size_t idx) const;
 
 };
 	
