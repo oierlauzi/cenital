@@ -10,12 +10,69 @@
 #include <iostream>
 #include <string>
 #include <mutex>
+#include <thread>
 #include <cstdint>
 
-//For parsing argv
-#include <tclap/CmdLine.h> 
+#include <tclap/CmdLine.h>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/server.hpp>
 
 using namespace Cenital;
+
+//TODO Remove
+static void messageCallback(websocketpp::server<websocketpp::config::asio>* s, 
+							websocketpp::connection_hdl hdl, 
+							websocketpp::server<websocketpp::config::asio>::message_ptr msg ) 
+{
+	std::cout << "on_message called with hdl: " << hdl.lock().get()
+			  << " and message: " << msg->get_payload()
+			  << std::endl;
+
+	// check for a special command to instruct the server to stop listening so
+	// it can be cleanly exited.
+	if (msg->get_payload() == "stop-listening") {
+		s->stop_listening();
+		return;
+	}
+
+	try {
+		s->send(hdl, msg->get_payload(), msg->get_opcode());
+	} catch (websocketpp::exception const & e) {
+		std::cout << "Echo failed because: "
+				  << "(" << e.what() << ")" << std::endl;
+	}
+}
+
+
+
+static std::unique_ptr<websocketpp::server<websocketpp::config::asio>> 
+createWebSocket(boost::asio::io_service& ios,
+				uint16_t port ) 
+{
+	std::unique_ptr<websocketpp::server<websocketpp::config::asio>> result;
+
+	//Only create if the port is valid
+	if(port > 0) {
+		//Create the server object
+		result = Zuazo::Utils::makeUnique<websocketpp::server<websocketpp::config::asio>>();
+		
+		//Initialize Asio
+		result->init_asio(&ios);
+
+		//Register the message callback //TODO
+		result->set_message_handler(
+			std::bind(&messageCallback, result.get(), std::placeholders::_1, std::placeholders::_2)
+		);
+
+		//Configure the port
+		result->listen(port);
+
+		//Start the server accept loop
+		result->start_accept();
+	}
+
+	return result;
+}
 
 static void wait(std::unique_lock<Zuazo::Instance>& lock, std::string_view keyword) {
 	//Show running message
@@ -35,9 +92,13 @@ int main(int argc, const char* const* argv) {
 	constexpr const char* appName = "Cenital";
 	constexpr Zuazo::Version version(0, 1, 0);
 
+	/*****************************
+	 *      Argument parsing     *
+	 *****************************/
+
 	//Parse input arguments
 	//Create the parser
-    TCLAP::CmdLine cmd(
+	TCLAP::CmdLine cmd(
 		appName, 							//Message
 		' ', 								//Delimiter
 		Zuazo::toString(version), 			//Version
@@ -52,10 +113,10 @@ int main(int argc, const char* const* argv) {
 	);
 	TCLAP::ValueArg<uint16_t> webSocketPortArg(
 		"w", "web-socket-port", 			//Arguments
-		"Port used by the web socket", 		//Description
+		"Port used by the web socket. 0 disables it. Default: 80",//Description
 		false, 								//Required
-		0, 									//Default value
-		"Valid port number (1-65535)", 		//Type description
+		80, 								//Default value
+		"port", 							//Type description
 		cmd									//Command parser
 	);
 
@@ -64,6 +125,11 @@ int main(int argc, const char* const* argv) {
 	//Parse the arguments
 	cmd.parse(argc, argv);
 
+
+
+	/*****************************
+	 *    Zuazo Instantiating    *
+	 *****************************/
 
 	//Instantiate the Zuazo library
 	const auto verbosity = 	verboseArg.getValue() ? 
@@ -88,12 +154,47 @@ int main(int argc, const char* const* argv) {
 	Zuazo::Instance instance(std::move(appInfo));
 	std::unique_lock<Zuazo::Instance> lock(instance);
 
+
+
+	/*****************************
+	 *    Mixer Instantiation    *
+	 *****************************/
+
 	//Create the mixer
 	Mixer mixer(instance, "Application");
 	mixer.asyncOpen(lock);
 
+
+
+	/*****************************
+	 *   Service Instantiating   *
+	 *****************************/
+
+	//Create Boost's I/O service
+	boost::asio::io_service ios;
+
+	//Instantiate the web socket
+	const auto wsServer = createWebSocket(ios, webSocketPortArg.getValue());
+
+	//Create a thread for running the services
+	std::thread serviceThread(
+		[&ios] () {
+			ios.run();
+		}	
+	);
+
+	
+
+	/*****************************
+	 *      Wait completion      *
+	 *****************************/
+
 	//Wait until quitting is requested by the user
 	wait(lock, "quit");
+
+	//Finish the service
+	ios.stop();
+	serviceThread.join();
 
 	return 0;
 }

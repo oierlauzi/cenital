@@ -8,6 +8,7 @@
 #include <array>
 #include <vector>
 #include <utility>
+#include <bitset>
 
 namespace Cenital {
 
@@ -36,31 +37,98 @@ static void closeHelper(ZuazoBase& base, std::unique_lock<Instance>* lock) {
  */
 
 struct MixEffectImpl {
+	class Overlay {
+	public:
+		Overlay(std::unique_ptr<Keyer> overlay = nullptr)
+			: m_overlay(std::move(overlay))
+			, m_state()
+		{
+		}
+		Overlay(Overlay&& other) = default;
+		~Overlay() = default;
+
+		Overlay& operator=(Overlay&& other) = default;
+
+
+		void setOverlay(std::unique_ptr<Keyer> overlay) {
+			m_overlay = std::move(overlay);
+		}
+
+		Keyer* getOverlay() noexcept {
+			return m_overlay.get();
+		}
+
+		const Keyer* getOverlay() const noexcept {
+			return m_overlay.get();
+		}
+
+
+		void setVisible(bool visibility) noexcept {
+			m_state[VISIBLE_BIT] = visibility;
+		}
+
+		bool getVisible() const noexcept {
+			return m_state[VISIBLE_BIT];
+		}
+
+		bool getVisible(MixEffect::OutputBus bus) const {
+			switch(bus) {
+			case MixEffect::OutputBus::PROGRAM:
+				return getVisible();
+			case MixEffect::OutputBus::PREVIEW:
+				return getVisible() != getTransition(); //xor
+			default:
+				throw std::runtime_error("Invalid bus");
+			}
+		}
+
+
+		void setTransition(bool transition) noexcept {
+			m_state[TRANSITION_ENABLED_BIT] = transition;
+		}
+
+		bool getTransition() const noexcept {
+			return m_state[TRANSITION_ENABLED_BIT];
+		}
+
+	private:
+		enum Bits {
+			VISIBLE_BIT,
+			TRANSITION_ENABLED_BIT,
+
+			BIT_COUNT
+		};
+
+		std::unique_ptr<Keyer>				m_overlay;
+		std::bitset<BIT_COUNT>				m_state;
+
+	};
+
 	using Input = Signal::DummyPad<Video>;
 	using Output = Signal::DummyPad<Video>;
 	using Compositor = Processors::Compositor;
 	using VideoSurface = Processors::Layers::VideoSurface;
-
+	
 	static constexpr auto UPDATE_PRIORITY = Instance::PLAYER_PRIORITY; //Animation-like
 	static constexpr auto OUTPUT_BUS_CNT = static_cast<size_t>(MixEffect::OutputBus::COUNT);
 	static constexpr auto OVERLAY_CNT = static_cast<size_t>(MixEffect::OverlaySlot::COUNT);
 
-	std::reference_wrapper<MixEffect>			owner;
+	std::reference_wrapper<MixEffect>				owner;
 
-	std::vector<Input>							inputs;
-	std::array<Output, OUTPUT_BUS_CNT>			outputs;
+	std::vector<Input>								inputs;
+	std::array<Output, OUTPUT_BUS_CNT>				outputs;
 
-	std::array<Compositor, OUTPUT_BUS_CNT> 		compositors;
-	std::array<Compositor, OUTPUT_BUS_CNT> 		intermediateCompositors;
-	Compositor&									referenceCompositor;
+	std::array<Compositor, OUTPUT_BUS_CNT> 			compositors;
+	std::array<Compositor, OUTPUT_BUS_CNT> 			intermediateCompositors;
+	Compositor&										referenceCompositor;
 
-	std::array<VideoSurface, OUTPUT_BUS_CNT> 	backgroundLayers;
-	VideoSurface								intermediateLayer;
+	std::array<VideoSurface, OUTPUT_BUS_CNT> 		backgroundLayers;
+	VideoSurface									intermediateLayer;
 
-	std::unique_ptr<TransitionBase>				transition;
-	MixEffect::OutputBus						transitionSlot;
+	std::unique_ptr<TransitionBase>					transition;
+	MixEffect::OutputBus							transitionSlot;
 
-	std::array<std::vector<Keyer>, OVERLAY_CNT>	overlays;
+	std::array<std::vector<Overlay>, OVERLAY_CNT>	overlays;
 
 	MixEffectImpl(	MixEffect& owner, 
 					Instance& instance,
@@ -308,6 +376,17 @@ struct MixEffectImpl {
 		//Write the sources swapping them
 		backgroundLayers[0].getInput().setSource(src1);
 		backgroundLayers[1].getInput().setSource(src0);
+
+		//Change the states of the overlays
+		for(auto& overlaySlot : overlays) {
+			for(auto& overlay : overlaySlot) {
+				if(overlay.getTransition()) {
+					overlay.setVisible(!overlay.getVisible());
+				}
+			}
+		}
+
+		configureLayers();
 	}
 
 
@@ -377,10 +456,12 @@ struct MixEffectImpl {
 		selection.reserve(count);
 		while(selection.size() < count) {
 			selection.emplace_back(
-				me.getInstance(),
-				me.getName() + " - " + selectionName + " " + toString(selection.size()),
-				&referenceCompositor,
-				referenceCompositor.getViewportSize()
+				Utils::makeUnique<Keyer>(
+					me.getInstance(),
+					me.getName() + " - " + selectionName + " " + toString(selection.size()),
+					&referenceCompositor,
+					referenceCompositor.getViewportSize()
+				)
 			);
 		}
 
@@ -395,28 +476,61 @@ struct MixEffectImpl {
 	}
 
 	Keyer& getOverlay(MixEffect::OverlaySlot slot, size_t idx) {
-		return overlays.at(static_cast<size_t>(slot)).at(idx);
+		return *findOverlay(slot, idx).getOverlay();
 	}
 
 	const Keyer& getOverlay(MixEffect::OverlaySlot slot, size_t idx) const {
-		return overlays.at(static_cast<size_t>(slot)).at(idx);
+		return *findOverlay(slot, idx).getOverlay();
+	}
+
+	void setOverlayVisible(MixEffect::OverlaySlot slot, size_t idx, bool visible) {
+		findOverlay(slot, idx).setVisible(visible);
+		configureLayers();
+	}
+
+	bool getOverlayVisible(MixEffect::OverlaySlot slot, size_t idx) const {
+		return findOverlay(slot, idx).getVisible();
+	}
+
+	void setOverlayTransition(MixEffect::OverlaySlot slot, size_t idx, bool transition) {
+		findOverlay(slot, idx).setTransition(transition);
+		configureLayers();
+	}
+
+	bool getOverlayTransition(MixEffect::OverlaySlot slot, size_t idx) const {
+		return findOverlay(slot, idx).getTransition();
 	}
 
 private:
+	Overlay& findOverlay(MixEffect::OverlaySlot slot, size_t idx) {
+		return overlays.at(static_cast<size_t>(slot)).at(idx);
+	}
+
+	const Overlay& findOverlay(MixEffect::OverlaySlot slot, size_t idx) const {
+		return overlays.at(static_cast<size_t>(slot)).at(idx);
+	}
+
 	void configureLayers() {
 		std::vector<RendererBase::LayerRef> layers;
 
 		if(transition && transition->getProgress() != 0.0f) {
 			//A transition is in progress. Configure USK and DSK separately
 			for(size_t i = 0; i < OUTPUT_BUS_CNT; ++i) {
+				const auto outputBus = static_cast<MixEffect::OutputBus>(i);
+
 				//Obtain the upsetream layers
 				layers = { backgroundLayers[i] };
-				//TODO add USK keyers
+
+				for(const auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::UPSTREAM)]) {
+					if(overlay.getVisible(outputBus)) {
+						layers.emplace_back(*overlay.getOverlay());
+					}
+				}
 
 				intermediateCompositors[i].setLayers(layers);
 
 				//Obtain the downstream layers
-				if(i == static_cast<size_t>(transitionSlot)) {
+				if(outputBus == transitionSlot) {
 					//Transition is active on this bus
 					const auto transitionLayers = transition->getLayers();
 					layers.clear();
@@ -426,7 +540,12 @@ private:
 					layers = { intermediateLayer };
 					intermediateLayer << intermediateCompositors[i];
 				}
-				//TODO add DSK keyers
+
+				for(const auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::DOWNSTREAM)]) {
+					if(overlay.getVisible(outputBus)) {
+						layers.emplace_back(*overlay.getOverlay());
+					}
+				}
 
 				compositors[i].setLayers(layers);
 			}
@@ -434,9 +553,18 @@ private:
 		} else {
 			//Configure the downstream and upstream composition altogether
 			for(size_t i = 0; i < OUTPUT_BUS_CNT; ++i) {
+				const auto outputBus = static_cast<MixEffect::OutputBus>(i);
+
 				//Obtain the layers
 				layers = { backgroundLayers[i] };
-				//TODO add USK and DSK keyers
+				
+				for(const auto& overlaySlot : overlays) {
+					for(const auto& overlay : overlaySlot) {
+						if(overlay.getVisible(outputBus)) {
+							layers.emplace_back(*overlay.getOverlay());
+						}
+					}
+				}
 
 				//Write changes
 				compositors[i].setLayers(layers);
@@ -605,6 +733,22 @@ Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) {
 
 const Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) const {
 	return (*this)->getOverlay(slot, idx);
+}
+
+void MixEffect::setOverlayVisible(OverlaySlot slot, size_t idx, bool visible) {
+	return (*this)->setOverlayVisible(slot, idx, visible);
+}
+
+bool MixEffect::getOverlayVisible(OverlaySlot slot, size_t idx) const {
+	return (*this)->getOverlayVisible(slot, idx);
+}
+
+void MixEffect::setOverlayTransition(OverlaySlot slot, size_t idx, bool transition) {
+	return (*this)->setOverlayTransition(slot, idx, transition);
+}
+
+bool MixEffect::getOverlayTransition(OverlaySlot slot, size_t idx) const {
+	return (*this)->getOverlayTransition(slot, idx);
 }
 
 }

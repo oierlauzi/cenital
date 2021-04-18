@@ -3,6 +3,9 @@
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Utils/Pimpl.h>
 
+#include <memory>
+#include <typeindex>
+
 namespace Cenital {
 
 struct MixerImpl;
@@ -17,10 +20,20 @@ public:
 	Mixer(Mixer&& other) noexcept;
 	virtual ~Mixer();
 
-	Mixer&			operator=(const Mixer& other) = delete;
-	Mixer&			operator=(Mixer&& other) noexcept;
+	Mixer&													operator=(const Mixer& other) = delete;
+	Mixer&													operator=(Mixer&& other) noexcept;
 
-	//TODO
+	bool													addElement(std::unique_ptr<ZuazoBase> element);
+	std::unique_ptr<ZuazoBase>								eraseElement(std::string_view name);
+
+	ZuazoBase*												getElement(std::string_view name) noexcept;
+	const ZuazoBase*										getElement(std::string_view name) const noexcept;
+
+	std::vector<std::reference_wrapper<ZuazoBase>>			listElements();
+	std::vector<std::reference_wrapper<ZuazoBase>>			listElements(std::type_index type);
+	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements() const;
+	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements(std::type_index type) const;
+
 };
 	
 }

@@ -4,6 +4,7 @@
 #include "Keyer.h"
 
 #include <zuazo/ZuazoBase.h>
+#include <zuazo/Video.h>
 #include <zuazo/RendererBase.h>
 #include <zuazo/Signal/Input.h>
 #include <zuazo/Signal/Output.h>
@@ -37,6 +38,15 @@ public:
 
 		UPSTREAM,
 		DOWNSTREAM,
+
+		COUNT
+	};
+
+	enum class OverlayTransition {
+		NONE = -1,
+
+		CUT,
+		FADE,
 
 		COUNT
 	};
@@ -80,7 +90,11 @@ public:
 	size_t									getOverlayCount(OverlaySlot slot) const;
 	Keyer&									getOverlay(OverlaySlot slot, size_t idx);
 	const Keyer&							getOverlay(OverlaySlot slot, size_t idx) const;
+	void									setOverlayVisible(OverlaySlot slot, size_t idx, bool visible);
+	bool									getOverlayVisible(OverlaySlot slot, size_t idx) const;
+	void									setOverlayTransition(OverlaySlot slot, size_t idx, bool transition);
+	bool									getOverlayTransition(OverlaySlot slot, size_t idx) const;
 
 };
-	
+
 }
