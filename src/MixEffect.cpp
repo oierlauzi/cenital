@@ -2,8 +2,8 @@
 
 #include <zuazo/Player.h>
 #include <zuazo/Signal/DummyPad.h>
-#include <zuazo/Processors/Compositor.h>
-#include <zuazo/Processors/Layers/VideoSurface.h>
+#include <zuazo/Renderers/Compositor.h>
+#include <zuazo/Layers/VideoSurface.h>
 
 #include <array>
 #include <vector>
@@ -106,8 +106,8 @@ struct MixEffectImpl {
 
 	using Input = Signal::DummyPad<Video>;
 	using Output = Signal::DummyPad<Video>;
-	using Compositor = Processors::Compositor;
-	using VideoSurface = Processors::Layers::VideoSurface;
+	using Compositor = Renderers::Compositor;
+	using VideoSurface = Layers::VideoSurface;
 	
 	static constexpr auto UPDATE_PRIORITY = Instance::PLAYER_PRIORITY; //Animation-like
 	static constexpr auto OUTPUT_BUS_CNT = static_cast<size_t>(MixEffect::OutputBus::COUNT);
@@ -162,9 +162,9 @@ struct MixEffectImpl {
 		referenceCompositor.setViewportSizeCallback(
 			std::bind(&MixEffectImpl::viewportSizeCallback, this, std::placeholders::_2)
 		);
-		referenceCompositor.setVideoModeNegotiationCallback(
-			std::bind(&MixEffectImpl::videoModeNegotiationCallback, this, std::placeholders::_2)
-		);
+		
+		//Configure the layers
+		configureLayers(false);
 	}
 
 	~MixEffectImpl() = default;
@@ -234,11 +234,11 @@ struct MixEffectImpl {
 				transition->setRepeat(ClipBase::Repeat::NONE); //Ensure that it won't repeat
 				transition->advanceNormalSpeed(deltaTime);
 
-				//If transition has ended, pause it and cut
-				if(transition->getProgress() == 1.0f) {
-					transition->pause();
-					transition->setProgress(0.0f);
+				//If transition has ended, cut. This will also stop and rewind the transition
+				if(transition->getTime().time_since_epoch() == transition->getDuration()) {
 					cut();
+					assert(transition->isPlaying() == false);
+					assert(transition->getTime() == Zuazo::TimePoint());
 				}
 
 			}
@@ -287,7 +287,7 @@ struct MixEffectImpl {
 			}
 
 			//Resize the array and rename the new pads (if any)
-			if(inputs.size() < count) {
+			if(inputs.size() > count) {
 				//We'll remove elements
 				inputs.erase(
 					std::next(inputs.cbegin(), count), 
@@ -386,14 +386,66 @@ struct MixEffectImpl {
 			}
 		}
 
-		configureLayers();
+		//Stop the transition just in case
+		if(transition) {
+			transition->stop();
+		}
+
+		//Ensure that the layers are configured without a transition in place
+		if(isTransitionEnabled()) {
+			configureLayers(false);
+		}
 	}
+
+	void playTransition() {
+		if(transition) {
+			//Start playing
+			transition->play();
+
+			//Configure the layers if necessary
+			if(!isTransitionEnabled()) {
+				configureLayers(true);
+			}
+		} else {
+			//No transition, simply cut
+			cut();
+		}
+	}
+
+
+
+	void setTransitionProgress(float progress) {
+		if(progress >= 1.0f) {
+			//If we got to the end, cut. This will reset the transition
+			cut();
+		} else if (progress >= 0.0f && transition) {
+			//Pause if a autotransition was taking place
+			transition->pause();
+
+			//Advance the transition upto the point
+			transition->setProgress(progress);
+			
+			//Configure the layers if necessary
+			if(!isTransitionEnabled()) {
+				configureLayers(true);
+			}
+		} 
+	}
+
+	float getTransitionProgress() const noexcept {
+		return transition ? transition->getProgress() : 0;
+	}
+
 
 
 	void setTransitionSlot(MixEffect::OutputBus bus) {
 		if(transitionSlot != bus) {
 			transitionSlot = bus;
-			configureLayers();
+
+			//Reconfigure the layers if necessary
+			if(isTransitionEnabled()) {
+				configureLayers(true);
+			}
 		}
 	}
 
@@ -427,8 +479,10 @@ struct MixEffectImpl {
 		std::swap(next, transition);
 		
 		//Reset the old one
-		next->getPrevIn() << Signal::noSignal;
-		next->getPostIn() << Signal::noSignal;
+		if(next) {
+			next->getPrevIn() << Signal::noSignal;
+			next->getPostIn() << Signal::noSignal;
+		}
 
 		return next;
 	}
@@ -459,10 +513,14 @@ struct MixEffectImpl {
 				Utils::makeUnique<Keyer>(
 					me.getInstance(),
 					me.getName() + " - " + selectionName + " " + toString(selection.size()),
-					&referenceCompositor,
 					referenceCompositor.getViewportSize()
 				)
 			);
+
+			//Set same openess
+			if(me.isOpen()) {
+				selection.back().getOverlay()->open();
+			}
 		}
 
 		//Remove elements if necessary
@@ -485,7 +543,7 @@ struct MixEffectImpl {
 
 	void setOverlayVisible(MixEffect::OverlaySlot slot, size_t idx, bool visible) {
 		findOverlay(slot, idx).setVisible(visible);
-		configureLayers();
+		configureLayers(isTransitionEnabled());
 	}
 
 	bool getOverlayVisible(MixEffect::OverlaySlot slot, size_t idx) const {
@@ -494,7 +552,7 @@ struct MixEffectImpl {
 
 	void setOverlayTransition(MixEffect::OverlaySlot slot, size_t idx, bool transition) {
 		findOverlay(slot, idx).setTransition(transition);
-		configureLayers();
+		configureLayers(isTransitionEnabled());
 	}
 
 	bool getOverlayTransition(MixEffect::OverlaySlot slot, size_t idx) const {
@@ -510,10 +568,10 @@ private:
 		return overlays.at(static_cast<size_t>(slot)).at(idx);
 	}
 
-	void configureLayers() {
+	void configureLayers(bool useTransition) {
 		std::vector<RendererBase::LayerRef> layers;
 
-		if(transition && transition->getProgress() != 0.0f) {
+		if(transition && useTransition) {
 			//A transition is in progress. Configure USK and DSK separately
 			for(size_t i = 0; i < OUTPUT_BUS_CNT; ++i) {
 				const auto outputBus = static_cast<MixEffect::OutputBus>(i);
@@ -521,7 +579,7 @@ private:
 				//Obtain the upsetream layers
 				layers = { backgroundLayers[i] };
 
-				for(const auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::UPSTREAM)]) {
+				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::UPSTREAM)]) {
 					if(overlay.getVisible(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
@@ -541,7 +599,7 @@ private:
 					intermediateLayer << intermediateCompositors[i];
 				}
 
-				for(const auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::DOWNSTREAM)]) {
+				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::DOWNSTREAM)]) {
 					if(overlay.getVisible(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
@@ -558,8 +616,8 @@ private:
 				//Obtain the layers
 				layers = { backgroundLayers[i] };
 				
-				for(const auto& overlaySlot : overlays) {
-					for(const auto& overlay : overlaySlot) {
+				for(auto& overlaySlot : overlays) {
+					for(auto& overlay : overlaySlot) {
 						if(overlay.getVisible(outputBus)) {
 							layers.emplace_back(*overlay.getOverlay());
 						}
@@ -586,16 +644,19 @@ private:
 		}
 	}
 
+	bool isTransitionEnabled() const noexcept {
+		return intermediateLayer.getInput().getSource() != nullptr;
+	}
 
 
-	static Processors::Layers::VideoSurface createBackgroundLayer(	Instance& instance, 
-																	std::string name,
-																	const Processors::Compositor& renderer ) 
+
+	static VideoSurface createBackgroundLayer(	Instance& instance, 
+												std::string name,
+												const Compositor& renderer ) 
 	{
-		Processors::Layers::VideoSurface result(
+		VideoSurface result(
 			instance,
 			name,
-			&renderer,
 			renderer.getViewportSize()
 		);
 		
@@ -626,7 +687,7 @@ MixEffect::MixEffect(	Zuazo::Instance& instance,
 		std::bind(&MixEffectImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixEffectImpl::close, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&MixEffectImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		{} )
+		std::bind(&MixEffectImpl::update, std::ref(**this)) )
 	, Zuazo::VideoBase(
 		std::bind(&MixEffectImpl::videoModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
@@ -636,6 +697,13 @@ MixEffect::MixEffect(	Zuazo::Instance& instance,
 
 	//Set compatibility to a known state
 	setVideoModeCompatibility((*this)->getVideoModeCompatibility());
+
+	//Configure the callbacks. Note this callbacks need to be set here 
+	//as they make use of this class, so setting them on the PIMPL
+	//instantiation will cause a segfault
+	(*this)->referenceCompositor.setVideoModeNegotiationCallback(
+		std::bind(&MixEffectImpl::videoModeNegotiationCallback, this->get(), std::placeholders::_2)
+	);
 }
 
 MixEffect::MixEffect(MixEffect&& other) = default;

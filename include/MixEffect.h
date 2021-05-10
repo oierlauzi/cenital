@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Controller.h"
 #include "TransitionBase.h"
 #include "Keyer.h"
 
@@ -79,6 +80,10 @@ public:
 	size_t									getBackground(OutputBus bus) const noexcept;
 
 	void									cut();
+	void									playTransition();
+
+	void									setTransitionProgress(float progress);
+	float									getTransitionProgress() const noexcept;
 
 	void									setTransitionSlot(OutputBus bus);
 	OutputBus								getTransitionSlot() const noexcept;
@@ -94,6 +99,8 @@ public:
 	bool									getOverlayVisible(OverlaySlot slot, size_t idx) const;
 	void									setOverlayTransition(OverlaySlot slot, size_t idx, bool transition);
 	bool									getOverlayTransition(OverlaySlot slot, size_t idx) const;
+
+	static void 							registerCommands(Controller::Node& node);
 
 };
 

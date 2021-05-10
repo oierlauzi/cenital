@@ -1,4 +1,7 @@
 #include "Mixer.h"
+#include "Controller.h"
+
+#include "MixEffect.h"
 
 #include <zuazo/Instance.h>
 #include <zuazo/Modules/Window.h>
@@ -72,6 +75,14 @@ createWebSocket(boost::asio::io_service& ios,
 	}
 
 	return result;
+}
+
+static void registerCommands(Controller& controller) {
+	auto& root = controller.getRootNode();
+
+	//Register the commands we know ahead of time
+	Mixer::registerCommands(root);
+	//MixEffect::registerCommands(root);
 }
 
 static void wait(std::unique_lock<Zuazo::Instance>& lock, std::string_view keyword) {
@@ -157,12 +168,16 @@ int main(int argc, const char* const* argv) {
 
 
 	/*****************************
-	 *    Mixer Instantiation    *
+	 *   Mixer  and controller   *
+	 * 	    instantiation        *
 	 *****************************/
 
 	//Create the mixer
 	Mixer mixer(instance, "Application");
 	mixer.asyncOpen(lock);
+
+	Controller controller(mixer);
+	registerCommands(controller);
 
 
 
@@ -186,7 +201,7 @@ int main(int argc, const char* const* argv) {
 	
 
 	/*****************************
-	 *      Wait completion      *
+	 *  Wait completion and exit *
 	 *****************************/
 
 	//Wait until quitting is requested by the user

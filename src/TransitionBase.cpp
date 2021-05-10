@@ -15,7 +15,6 @@ TransitionBase::TransitionBase(	Instance& instance,
 								CloseCallback closeCbk,
 								AsyncCloseCallback asyncCloseCbk,
 								UpdateCallback updateCbk,
-								RendererCallback rendererCbk,
 								SizeCallback sizeCbk )
 	: ZuazoBase(
 		instance, 
@@ -36,7 +35,6 @@ TransitionBase::TransitionBase(	Instance& instance,
 	, m_layers(layers)
 	, m_renderer(nullptr)
 	, m_size()
-	, m_rendererCallback(std::move(rendererCbk))
 	, m_sizeCallback(std::move(sizeCbk))
 {
 	//Register the pads
@@ -69,18 +67,6 @@ TransitionBase::Layers TransitionBase::getLayers() const noexcept {
 
 
 
-void TransitionBase::setRenderer(const RendererBase* renderer) {
-	if(m_renderer != renderer) {
-		m_renderer = renderer;
-		Utils::invokeIf(m_rendererCallback, *this, m_renderer);
-	}
-}
-
-const RendererBase* TransitionBase::getRenderer() const noexcept {
-	return m_renderer;
-}
-
-
 void TransitionBase::setSize(Math::Vec2f size) {
 	if(m_size != size) {
 		m_size = size;
@@ -107,15 +93,6 @@ void TransitionBase::setLayers(Layers layers) noexcept {
 	m_layers = layers;
 }
 
-
-
-void TransitionBase::setRendererCallback(RendererCallback cbk) {
-	m_rendererCallback = std::move(cbk);
-}
-
-const TransitionBase::RendererCallback& TransitionBase::getRendererCallback() const noexcept {
-	return m_rendererCallback;
-}
 
 
 void TransitionBase::setSizeCallback(SizeCallback cbk) {

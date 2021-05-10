@@ -2,7 +2,6 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#include "color_transfer.glsl"
 #include "color_utils.glsl"
 #include "frame.glsl"
 #include "bezier.glsl"
@@ -18,8 +17,8 @@ struct ChromaKeyParameters {
 	float deltaHueSmoothness;
 	float saturationThreshold;
 	float saturationSmoothness;
-	float luminosityThreshold;
-	float luminositySmoothness;
+	float valueThreshold;
+	float valueSmoothness;
 };
 
 //Specialization constants and normal constants
@@ -35,10 +34,11 @@ const int LINEAR_KEY_FILL_B 	= 0x08;
 const int LINEAR_KEY_FILL_A 	= 0x09;
 const int LINEAR_KEY_FILL_Y 	= 0x0A;
 
-layout(constant_id = 0)  const bool sameKeyFill = false;
-layout(constant_id = 1)  const bool lumaKeyEnabled = false;
-layout(constant_id = 2)  const bool chromaKeyEnabled = false;
-layout(constant_id = 3)  const int linearKeyType = 0;
+layout(constant_id = 0) const int sampleMode = frame_SAMPLE_MODE_PASSTHOUGH;
+layout(constant_id = 1) const bool sameKeyFill = false;
+layout(constant_id = 2) const bool lumaKeyEnabled = false;
+layout(constant_id = 3) const bool chromaKeyEnabled = false;
+layout(constant_id = 4) const int linearKeyType = 0;
 
 //Vertex I/O
 layout(location = 0) in vec2 in_texCoord;
@@ -47,10 +47,6 @@ layout(location = 1) in vec3 in_klm;
 layout(location = 0) out vec4 out_color;
 
 //Uniform buffers
-layout(set = 0, binding = 1) uniform OutputColorTransferBlock{
-	ct_write_data 			outColorTransfer;
-};
-
 layout(set = 1, binding = 1) uniform LayerDataBlock {
 	LumaKeyParameters 		lumaKeyparameters;
 	ChromaKeyParameters 	chromaKeyparameters;
@@ -67,76 +63,65 @@ float lumaKeyAlpha(in LumaKeyParameters parameters, in vec3 keyColor) {
 	//Calculate the luminance according to the YUV color system
 	const float luminance = getLuminance(keyColor);
 
-	float alpha;
-	if(parameters.minThreshHold < 0.0f) {
-		//Negative threshold signals inversion
-		if(parameters.minThreshHold > parameters.maxThreshHold) {
-			//Ensures that he parameter provided to smoothstep is valid.
-			//Note that min and max are negative, so max comes first
-			alpha = smoothstep(parameters.maxThreshHold, parameters.minThreshHold, -luminance);
-		} else {
-			//Simple threshlold
-			alpha = luminance > -parameters.minThreshHold ? 0.0f : 1.0f;
-		}
-	} else {
-		//Positive threshold, normal operation
-		if(parameters.minThreshHold < parameters.maxThreshHold) {
-			//Ensures that he parameter provided to smoothstep is valid
-			alpha = smoothstep(parameters.minThreshHold, parameters.maxThreshHold, luminance);
-		} else {
-			//Simple threshlold
-			alpha = luminance < parameters.minThreshHold ? 0.0f : 1.0f;
-		}
-	}
+	//Determine if the values are inverted
+	const bool inverted = parameters.minThreshHold < 0.0f;
 
-	return alpha;
+	const float minThreshHold = abs(parameters.minThreshHold);
+	const float maxThreshHold = abs(parameters.maxThreshHold);
+
+	//Only use smoothstep if its behaviour is defined
+	const float alpha = parameters.minThreshHold < parameters.maxThreshHold ?
+		smoothstep(minThreshHold, maxThreshHold, luminance) :
+		step(minThreshHold, luminance) ;
+
+	//Invert the result if necessary
+	return inverted ? 1.0 - alpha : alpha;
+}
+
+//Chroma keying is based on:
+//Software Chroma Keying in an Imersive Virtual Environment, F. van den Bergh & V. Lalioti
+//https://github.com/CasparCG/server/blob/master/src/accelerator/ogl/image/shader.frag
+
+//Returns the absolute distance between two angles.
+//Half specifies the units of the inputs, so that half
+//equals a half turn (pi rad, 180 deg, 0.5 turns...).
+//Inputs must be less or equal than one turn appart.
+//At most, the distance between to angles will be "half"
+float angleDistance(float a, float b, float halfTurn) {
+	return halfTurn - abs(abs(b - a) - halfTurn);
 }
 
 float chromaKeyAlpha(in ChromaKeyParameters parameters, in vec3 keyColor) {
-	//Convert the color into hsl
-	const vec3 hslColor = rgb2hsl(keyColor);
+	//Convert the color into hsv
+	const vec3 hsvColor = rgb2hsv(keyColor);
 
-	//Calculate the attenuation regarding the hue
-	float alphaHue;
-	const float deltaHue = mod(abs(hslColor.x - parameters.hue), 360.0f);
-	const float maxDeltaHue0 = parameters.deltaHueThreshold;
-	if(parameters.deltaHueSmoothness > 0.0f) {
-		//Ensures that he parameter provided to smoothstep is valid
-		const float maxDeltaHue1 = maxDeltaHue0 + parameters.deltaHueSmoothness;
-		alphaHue = smoothstep(maxDeltaHue0, maxDeltaHue1, deltaHue);
-	} else {
-		//Simple threshlold
-		alphaHue = (deltaHue > maxDeltaHue0) ? 1.0f : 0.0f;
-	}
+	//Calculate the deltas and the lower and upper thresholds
+	const vec3 deltas = vec3(
+		angleDistance(hsvColor.x, parameters.hue, 180.0), //rgb2hsv retunrs hue in [0, 360]
+		hsvColor.y,
+		hsvColor.z
+	);
+	const vec3 threshlold0 = vec3(
+		parameters.deltaHueThreshold,
+		parameters.saturationThreshold - parameters.saturationSmoothness,
+		parameters.valueThreshold - parameters.valueSmoothness
+	);
+	const vec3 threshlold1 = vec3(
+		parameters.deltaHueThreshold + parameters.deltaHueSmoothness,
+		parameters.saturationThreshold,
+		parameters.valueThreshold
+	);
 
-	//Calculate the attenuation regarding the saturation
-	float alphaSat;
-	const float minSat1 = parameters.saturationThreshold;
-	if(parameters.saturationSmoothness > 0.0f) {
-		//Ensures that he parameter provided to smoothstep is valid
-		const float minSat0 = minSat1 - parameters.saturationSmoothness;
-		alphaSat = 1.0f - smoothstep(minSat0, minSat1, hslColor.y);
-	} else {
-		//Simple threshlold
-		alphaSat = (hslColor.y < minSat1) ? 1.0f : 0.0f;
-	}
-
-	//Calculate the attenuation regarding the luminosity.
-	//For HSL colorspace, the maximum saturation is at 0.5 luminosity
-	float alphaLum;
-	const float deltaLuminosity = abs(0.5f - hslColor.z);
-	const float minLum0 = parameters.luminosityThreshold;
-	if(parameters.luminositySmoothness > 0.0f) {
-		//Ensures that he parameter provided to smoothstep is valid
-		const float minLum1 = minLum0 + parameters.luminositySmoothness;
-		alphaLum = smoothstep(minLum0, minLum1, deltaLuminosity);
-	} else {
-		//Simple threshlold
-		alphaLum = (deltaLuminosity > minLum0) ? 1.0f : 0.0f;
-	}
+	//Calculate the alphas related to each of the parameters
+	//Only use smoothstep if its behaviour is defined (edge0 < edge1)
+	const vec3 alphas = mix(
+		step(threshlold0, deltas),
+		smoothstep(threshlold0, threshlold1, deltas),
+		lessThan(threshlold0, threshlold1)
+	);
 
 	//The result will be the least limiting one
-	return max(alphaHue, max(alphaSat, alphaLum));
+	return max(alphas.x, max(alphas.y, alphas.z));
 }
 
 float linearKeyAlpha(in int type, in vec4 keyColor, in vec4 fillColor) {
@@ -173,16 +158,15 @@ void main() {
 	}
 
 	//Sample the key frame
-	const vec4 keyColor = frame_texture(2, in_texCoord);
+	const vec4 keyColor = frame_texture(sampleMode, frame_sampler(2), in_texCoord);
 
 	//Sample the fill frame
 	vec4 fillColor; 
 	if(sameKeyFill) {
 		fillColor = keyColor;
 	} else {
-		fillColor = frame_texture(3, in_texCoord);
+		fillColor = frame_texture(sampleMode, frame_sampler(3), in_texCoord);
 	}
-	fillColor = ct_transferColor(frame_color_transfer(3), outColorTransfer, fillColor);
 
 	//Apply all alpha-s
 	float alpha = opacity * sDistOpacity;
@@ -198,6 +182,6 @@ void main() {
 
 	//Compute the final color
 	out_color = vec4(fillColor.rgb, alpha);
-	out_color = ct_premultiply_alpha(out_color);
+	out_color = frame_premultiply_alpha(out_color);
 }
  

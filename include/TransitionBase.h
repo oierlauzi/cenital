@@ -19,7 +19,6 @@ class TransitionBase
 public:
 	using Input = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
 	using Layers = Zuazo::Utils::BufferView<const Zuazo::RendererBase::LayerRef>;
-	using RendererCallback = std::function<void(TransitionBase&, const Zuazo::RendererBase*)>;
 	using SizeCallback = std::function<void(TransitionBase&, Zuazo::Math::Vec2f)>;
 
 	TransitionBase(	Zuazo::Instance& instance, 
@@ -33,7 +32,6 @@ public:
 					CloseCallback closeCbk = {},
 					AsyncCloseCallback asyncCloseCbk = {},
 					UpdateCallback updateCbk = {},
-					RendererCallback rendererCbk = {},
 					SizeCallback sizeCbk = {} );
 	TransitionBase(const TransitionBase& other) = default;
 	TransitionBase(TransitionBase&& other) = default;
@@ -52,9 +50,6 @@ public:
 
 	Layers							getLayers() const noexcept;
 
-	void							setRenderer(const Zuazo::RendererBase* renderer);
-	const Zuazo::RendererBase*		getRenderer() const noexcept;
-
 	void							setSize(Zuazo::Math::Vec2f size);
 	Zuazo::Math::Vec2f				getSize() const noexcept;
 
@@ -63,9 +58,6 @@ protected:
 	void							setPostIn(Input& in) noexcept;
 
 	void							setLayers(Layers layers) noexcept;
-
-	void							setRendererCallback(RendererCallback cbk);
-	const RendererCallback&			getRendererCallback() const noexcept;
 
 	void							setSizeCallback(SizeCallback cbk);
 	const SizeCallback&				getSizeCallback() const noexcept;
@@ -77,7 +69,6 @@ private:
 	const Zuazo::RendererBase*		m_renderer;
 	Zuazo::Math::Vec2f				m_size;
 
-	RendererCallback				m_rendererCallback;
 	SizeCallback					m_sizeCallback;
 
 };

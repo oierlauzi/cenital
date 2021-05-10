@@ -2,7 +2,7 @@
 
 #include <zuazo/Signal/DummyPad.h>
 #include <zuazo/Math/Trigonometry.h>
-#include <zuazo/Processors/Layers/VideoSurface.h>
+#include <zuazo/Layers/VideoSurface.h>
 
 namespace Cenital {
 
@@ -10,7 +10,7 @@ using namespace Zuazo;
 
 struct MixTransitionImpl {
 	using Input = Signal::DummyPad<Zuazo::Video>;
-	using VideoSurface = Processors::Layers::VideoSurface;
+	using VideoSurface = Layers::VideoSurface;
 
 	std::reference_wrapper<MixTransition>	owner;
 
@@ -29,8 +29,8 @@ struct MixTransitionImpl {
 		: owner(owner)
 		, prevIn("prevIn")
 		, postIn("postIn")
-		, prevSurface(instance, "prevSurface", nullptr, Math::Vec2f())
-		, postSurface(instance, "postSurface", nullptr, Math::Vec2f())
+		, prevSurface(instance, "prevSurface", Math::Vec2f())
+		, postSurface(instance, "postSurface", Math::Vec2f())
 		, layerReferences{ postSurface, prevSurface }
 		, effect(MixTransition::Effect::MIX)
 	{
@@ -109,11 +109,6 @@ struct MixTransitionImpl {
 		}
 	}
 
-	void rendererCallback(TransitionBase&, const RendererBase* renderer) {
-		prevSurface.setRenderer(renderer);
-		postSurface.setRenderer(renderer);
-	}
-
 	void sizeCallback(TransitionBase&, Math::Vec2f size) {
 		prevSurface.setSize(size);
 		postSurface.setSize(size);
@@ -186,7 +181,6 @@ MixTransition::MixTransition(	Instance& instance,
 		std::bind(&MixTransitionImpl::close, std::ref(**this), std::placeholders::_1),
 		std::bind(&MixTransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixTransitionImpl::updateCallback, std::ref(**this)),
-		std::bind(&MixTransitionImpl::rendererCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixTransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
 	//Leave it in a known state

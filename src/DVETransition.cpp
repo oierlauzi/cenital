@@ -2,7 +2,7 @@
 
 #include <zuazo/Signal/DummyPad.h>
 #include <zuazo/Math/Trigonometry.h>
-#include <zuazo/Processors/Layers/VideoSurface.h>
+#include <zuazo/Layers/VideoSurface.h>
 
 namespace Cenital {
 
@@ -10,7 +10,7 @@ using namespace Zuazo;
 
 struct DVETransitionImpl {
 	using Input = Signal::DummyPad<Zuazo::Video>;
-	using VideoSurface = Processors::Layers::VideoSurface;
+	using VideoSurface = Layers::VideoSurface;
 
 	std::reference_wrapper<DVETransition>	owner;
 
@@ -30,8 +30,8 @@ struct DVETransitionImpl {
 		: owner(owner)
 		, prevIn("prevIn")
 		, postIn("postIn")
-		, prevSurface(instance, "prevSurface", nullptr, Math::Vec2f())
-		, postSurface(instance, "postSurface", nullptr, Math::Vec2f())
+		, prevSurface(instance, "prevSurface", Math::Vec2f())
+		, postSurface(instance, "postSurface", Math::Vec2f())
 		, layerReferences{ postSurface, prevSurface }
 		, angle(0.0f)
 		, effect(DVETransition::Effect::UNCOVER)
@@ -116,11 +116,6 @@ struct DVETransitionImpl {
 		default:
 			break;
 		}
-	}
-
-	void rendererCallback(TransitionBase&, const RendererBase* renderer) {
-		prevSurface.setRenderer(renderer);
-		postSurface.setRenderer(renderer);
 	}
 
 	void sizeCallback(TransitionBase&, Math::Vec2f size) {
@@ -275,7 +270,6 @@ DVETransition::DVETransition(	Instance& instance,
 		std::bind(&DVETransitionImpl::close, std::ref(**this), std::placeholders::_1),
 		std::bind(&DVETransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&DVETransitionImpl::updateCallback, std::ref(**this)),
-		std::bind(&DVETransitionImpl::rendererCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&DVETransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
 	//Leave it in a known state

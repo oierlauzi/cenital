@@ -42,17 +42,21 @@ struct KeyerImpl {
 		};
 
 		struct FragmentConstants {
-			FragmentConstants(	VkBool32 sameKeyFill = false, 
-								VkBool32 lumaKeyEnabled = false, 
-								VkBool32 chromaKeyEnabled = false,
-								int32_t linearKeyType = 0 ) noexcept
-				: sameKeyFill(sameKeyFill)
+			FragmentConstants() = default;
+			FragmentConstants(	uint32_t sampleMode,
+								VkBool32 sameKeyFill, 
+								VkBool32 lumaKeyEnabled, 
+								VkBool32 chromaKeyEnabled,
+								int32_t linearKeyType ) noexcept
+				: sampleMode(sampleMode)
+				, sameKeyFill(sameKeyFill)
 				, lumaKeyEnabled(lumaKeyEnabled)
 				, chromaKeyEnabled(chromaKeyEnabled)
 				, linearKeyType(linearKeyType)
 			{
 			}
 
+			uint32_t		sampleMode;
 			VkBool32		sameKeyFill;
 			VkBool32		lumaKeyEnabled;
 			VkBool32		chromaKeyEnabled;
@@ -93,6 +97,7 @@ struct KeyerImpl {
 		};
 
 		enum FragmentConstantId {
+			FRAGMENT_CONSTANT_ID_SAMPLE_MODE,
 			FRAGMENT_CONSTANT_ID_SAME_KEY_FILL,
 			FRAGMENT_CONSTANT_ID_LUMA_KEY_ENABLED,
 			FRAGMENT_CONSTANT_ID_CHROMA_KEY_ENABLED,
@@ -109,8 +114,8 @@ struct KeyerImpl {
 			LAYERDATA_UNIFORM_CHROMAKEY_HUE_SMOOTHNESS,
 			LAYERDATA_UNIFORM_CHROMAKEY_SATURATION_THRESHOLD,
 			LAYERDATA_UNIFORM_CHROMAKEY_SATURATION_SMOOTHNESS,
-			LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_THRESHOLD,
-			LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_SMOOTHNESS,
+			LAYERDATA_UNIFORM_CHROMAKEY_VALUE_THRESHOLD,
+			LAYERDATA_UNIFORM_CHROMAKEY_VALUE_SMOOTHNESS,
 			LAYERDATA_UNIFORM_OPACITY,
 
 			LAYERDATA_UNIFORM_COUNT
@@ -124,12 +129,17 @@ struct KeyerImpl {
 			Utils::Area(6*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_HUE_SMOOTHNESS 
 			Utils::Area(7*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_SATURATION_THRESHOLD 
 			Utils::Area(8*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_SATURATION_SMOOTHNESS 
-			Utils::Area(9*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_THRESHOLD 
-			Utils::Area(10*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_SMOOTHNESS 
+			Utils::Area(9*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_VALUE_THRESHOLD 
+			Utils::Area(10*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_CHROMAKEY_VALUE_SMOOTHNESS 
 			Utils::Area(12*sizeof(float),	sizeof(float)),	//LAYERDATA_UNIFORM_OPACITY 
 		};
 
 		static constexpr std::array<vk::SpecializationMapEntry, FRAGMENT_CONSTANT_ID_COUNT> FRAGMENT_SPECIALIZATION_LAYOUT = {
+			vk::SpecializationMapEntry(
+				FRAGMENT_CONSTANT_ID_SAMPLE_MODE,
+				offsetof(FragmentConstants, sameKeyFill),
+				sizeof(FragmentConstants::sameKeyFill)
+			),
 			vk::SpecializationMapEntry(
 				FRAGMENT_CONSTANT_ID_SAME_KEY_FILL,
 				offsetof(FragmentConstants, sameKeyFill),
@@ -221,7 +231,7 @@ struct KeyerImpl {
 					const Video& keyFrame,
 					const Video& fillFrame,
 					ScalingFilter filter,
-					Graphics::RenderPass renderPass,
+					vk::RenderPass renderPass,
 					BlendingMode blendingMode,
 					RenderingLayer renderingLayer ) 
 		{				
@@ -245,13 +255,6 @@ struct KeyerImpl {
 
 				//Flush the unform buffer
 				resources->uniformBuffer.flush(vulkan);
-
-				//Test if both frames are equal
-				const bool sameKeyFill = (keyFrame == fillFrame);
-				if(fragmentConstants.sameKeyFill != sameKeyFill) {
-					updateSameKeyFillConstant(sameKeyFill);
-				}
-				assert(fragmentConstants.sameKeyFill == sameKeyFill);
 
 				//Configure the samplers for propper operation
 				configureSamplers(*keyFrame, *fillFrame, filter, renderPass, blendingMode, renderingLayer);
@@ -320,9 +323,6 @@ struct KeyerImpl {
 		}
 
 
-		void updateSameKeyFillConstant(VkBool32 same) {
-			updateFragmentConstant(FRAGMENT_CONSTANT_ID_SAME_KEY_FILL, same);
-		}
 
 		void updateLumaKeyEnabledConstant(VkBool32 ena) {
 			updateFragmentConstant(FRAGMENT_CONSTANT_ID_LUMA_KEY_ENABLED, ena);
@@ -381,12 +381,12 @@ struct KeyerImpl {
 			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_SATURATION_SMOOTHNESS, smoothness);
 		}
 
-		void updateChromaKeyLuminosityThresholdUniform(float threshold) {
-			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_THRESHOLD, threshold);
+		void updateChromaKeyValueThresholdUniform(float threshold) {
+			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_VALUE_THRESHOLD, threshold);
 		}
 
-		void updateChromaKeyLuminositySmoothnessUniform(float smoothness) {
-			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_LUMINOSITY_SMOOTHNESS, smoothness);
+		void updateChromaKeyValueSmoothnessUniform(float smoothness) {
+			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_VALUE_SMOOTHNESS, smoothness);
 		}
 
 
@@ -398,17 +398,24 @@ struct KeyerImpl {
 		void configureSamplers(	const Graphics::Frame& keyFrame, 
 								const Graphics::Frame& fillFrame, 
 								ScalingFilter filter,
-								Graphics::RenderPass renderPass,
+								vk::RenderPass renderPass,
 								BlendingMode blendingMode,
 								RenderingLayer renderingLayer ) 
 		{
 			const auto newKeyDescriptorSetLayout = keyFrame.getDescriptorSetLayout(filter);
 			const auto newFillDescriptorSetLayout = fillFrame.getDescriptorSetLayout(filter);
+			const auto newSampleMode = fillFrame.getSamplingMode(filter);
+			const auto newSameKeyFill = &keyFrame == &fillFrame; //Check if the pointed is the same
+
 			if(	keyFrameDescriptorSetLayout != newKeyDescriptorSetLayout ||
-				fillFrameDescriptorSetLayout != newFillDescriptorSetLayout ) 
+				fillFrameDescriptorSetLayout != newFillDescriptorSetLayout ||
+				fragmentConstants.sampleMode != newSampleMode ||
+				fragmentConstants.sameKeyFill != newSameKeyFill ) 
 			{
 				keyFrameDescriptorSetLayout = newKeyDescriptorSetLayout;
 				fillFrameDescriptorSetLayout = newFillDescriptorSetLayout;
+				fragmentConstants.sampleMode = newSampleMode;
+				fragmentConstants.sameKeyFill = newSameKeyFill;
 
 				//Recreate stuff
 				pipelineLayout = createPipelineLayout(vulkan, keyFrameDescriptorSetLayout, fillFrameDescriptorSetLayout);
@@ -710,7 +717,7 @@ struct KeyerImpl {
 
 		static vk::Pipeline createPipeline(	const Graphics::Vulkan& vulkan,
 											vk::PipelineLayout layout,
-											Graphics::RenderPass renderPass,
+											vk::RenderPass renderPass,
 											BlendingMode blendingMode,
 											RenderingLayer renderingLayer,
 											const FragmentConstants& fragmentConstants )
@@ -727,7 +734,7 @@ struct KeyerImpl {
 			std::memcpy(&constantData, &fragmentConstants, constantData.size());
 			const Index index(
 				layout,
-				renderPass.get(),
+				renderPass,
 				blendingMode,
 				renderingLayer,
 				constantData
@@ -888,7 +895,7 @@ struct KeyerImpl {
 					&colorBlend,										//Color blending
 					&dynamicState,										//Dynamic states
 					layout,												//Pipeline layout
-					renderPass.get(), 0,								//Renderpasses
+					renderPass, 0,										//Renderpasses
 					nullptr, 0											//Inherit
 				);
 
@@ -925,8 +932,8 @@ struct KeyerImpl {
 	float									chromaKeyHueSmoothness;
 	float									chromaKeySaturationThreshold;
 	float									chromaKeySaturationSmoothness;
-	float									chromaKeyLuminosityThreshold;
-	float									chromaKeyLuminositySmoothness;
+	float									chromaKeyValueThreshold;
+	float									chromaKeyValueSmoothness;
 
 	bool									linearKeyInverted;
 	Keyer::LinearKeyChannel					linearKeyChannel;
@@ -957,8 +964,8 @@ struct KeyerImpl {
 		, chromaKeyHueSmoothness(10.0f)
 		, chromaKeySaturationThreshold(0.4f)
 		, chromaKeySaturationSmoothness(0.1f)
-		, chromaKeyLuminosityThreshold(0.3f)
-		, chromaKeyLuminositySmoothness(0.1f)
+		, chromaKeyValueThreshold(0.3f)
+		, chromaKeyValueSmoothness(0.1f)
 
 		, linearKeyInverted(false)
 		, linearKeyChannel(Keyer::LinearKeyChannel::FILL_A)
@@ -979,7 +986,7 @@ struct KeyerImpl {
 		assert(&owner.get() == &keyer);
 		assert(!opened);
 
-		if(keyer.getRenderPass() != Graphics::RenderPass()) {
+		if(keyer.getRenderPass()) {
 			//Create in a unlocked environment
 			if(lock) lock->unlock();
 			auto newOpened = Utils::makeUnique<Open>(
@@ -1007,8 +1014,8 @@ struct KeyerImpl {
 			newOpened->updateChromaKeyHueSmoothnessUniform(getChromaKeyHueSmoothness());
 			newOpened->updateChromaKeySaturationThresholdUniform(getChromaKeySaturationThreshold());
 			newOpened->updateChromaKeySaturationSmoothnessUniform(getChromaKeySaturationSmoothness());
-			newOpened->updateChromaKeyLuminosityThresholdUniform(getChromaKeyLuminosityThreshold());
-			newOpened->updateChromaKeyLuminositySmoothnessUniform(getChromaKeyLuminositySmoothness());
+			newOpened->updateChromaKeyValueThresholdUniform(getChromaKeyValueThreshold());
+			newOpened->updateChromaKeyValueSmoothnessUniform(getChromaKeyValueSmoothness());
 
 			newOpened->updateLinearKeyTypeConstant(
 				getLinearKeyEnabled(),
@@ -1102,7 +1109,7 @@ struct KeyerImpl {
 				result = true;
 			} else if(getLinearKeyEnabled()) {
 				if(getLinearKeyChannel() == Keyer::LinearKeyChannel::FILL_A) {
-					result = Zuazo::hasAlpha(lastElement->getDescriptor().getColorFormat());
+					result = Zuazo::hasAlpha(lastElement->getDescriptor()->getColorFormat());
 				} else {
 					result = true;
 				}
@@ -1176,7 +1183,7 @@ struct KeyerImpl {
 		recreateCallback(keyer, keyer.getRenderPass(), keyer.getBlendingMode());
 	}
 
-	void renderPassCallback(LayerBase& base, Graphics::RenderPass renderPass) {
+	void renderPassCallback(LayerBase& base, vk::RenderPass renderPass) {
 		auto& keyer = static_cast<Keyer&>(base);
 		recreateCallback(keyer, renderPass, keyer.getBlendingMode());
 	}
@@ -1418,37 +1425,37 @@ struct KeyerImpl {
 	}
 
 
-	void setChromaKeyLuminosityThreshold(float threshold) {
-		if(chromaKeyLuminosityThreshold != threshold) {
-			chromaKeyLuminosityThreshold = threshold;
+	void setChromaKeyValueThreshold(float threshold) {
+		if(chromaKeyValueThreshold != threshold) {
+			chromaKeyValueThreshold = threshold;
 
 			if(opened) {
-				opened->updateChromaKeyLuminosityThresholdUniform(chromaKeyLuminosityThreshold);
+				opened->updateChromaKeyValueThresholdUniform(chromaKeyValueThreshold);
 			}
 
 			lastFrames.clear(); //Will force hasChanged() to true
 		}
 	}
 
-	float getChromaKeyLuminosityThreshold() const noexcept {
-		return chromaKeyLuminosityThreshold;
+	float getChromaKeyValueThreshold() const noexcept {
+		return chromaKeyValueThreshold;
 	}
 
 
-	void setChromaKeyLuminositySmoothness(float smoothness) {
-		if(chromaKeyLuminositySmoothness != smoothness) {
-			chromaKeyLuminositySmoothness = smoothness;
+	void setChromaKeyValueSmoothness(float smoothness) {
+		if(chromaKeyValueSmoothness != smoothness) {
+			chromaKeyValueSmoothness = smoothness;
 
 			if(opened) {
-				opened->updateChromaKeyLuminositySmoothnessUniform(chromaKeyLuminositySmoothness);
+				opened->updateChromaKeyValueSmoothnessUniform(chromaKeyValueSmoothness);
 			}
 
 			lastFrames.clear(); //Will force hasChanged() to true
 		}
 	}
 
-	float getChromaKeyLuminositySmoothness() const noexcept {
-		return chromaKeyLuminositySmoothness;
+	float getChromaKeyValueSmoothness() const noexcept {
+		return chromaKeyValueSmoothness;
 	}
 
 
@@ -1518,13 +1525,13 @@ struct KeyerImpl {
 
 private:
 	void recreateCallback(	Keyer& keyer, 
-							Graphics::RenderPass renderPass,
+							vk::RenderPass renderPass,
 							BlendingMode blendingMode )
 	{
 		assert(&owner.get() == &keyer);
 
 		if(keyer.isOpen()) {
-			const bool isValid = 	renderPass != Graphics::RenderPass() &&
+			const bool isValid = 	renderPass &&
 									blendingMode > BlendingMode::NONE ;
 
 			if(opened && isValid) {
@@ -1551,7 +1558,6 @@ private:
 
 Keyer::Keyer(	Instance& instance,
 				std::string name,
-				const RendererBase* renderer,
 				Math::Vec2f size )
 	: Utils::Pimpl<KeyerImpl>({}, *this, size)
 	, ZuazoBase(
@@ -1564,7 +1570,6 @@ Keyer::Keyer(	Instance& instance,
 		std::bind(&KeyerImpl::close, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&KeyerImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 	, LayerBase(
-		renderer,
 		std::bind(&KeyerImpl::transformCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::opacityCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::blendingModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
@@ -1697,21 +1702,21 @@ float Keyer::getChromaKeySaturationSmoothness() const noexcept {
 }
 
 
-void Keyer::setChromaKeyLuminosityThreshold(float threshold) {
-	(*this)->setChromaKeyLuminosityThreshold(threshold);
+void Keyer::setChromaKeyValueThreshold(float threshold) {
+	(*this)->setChromaKeyValueThreshold(threshold);
 }
 
-float Keyer::getChromaKeyLuminosityThreshold() const noexcept {
-	return (*this)->getChromaKeyLuminosityThreshold();
+float Keyer::getChromaKeyValueThreshold() const noexcept {
+	return (*this)->getChromaKeyValueThreshold();
 }
 
 
-void Keyer::setChromaKeyLuminositySmoothness(float smoothness) {
-	(*this)->setChromaKeyLuminositySmoothness(smoothness);
+void Keyer::setChromaKeyValueSmoothness(float smoothness) {
+	(*this)->setChromaKeyValueSmoothness(smoothness);
 }
 
-float Keyer::getChromaKeyLuminositySmoothness() const noexcept {
-	return (*this)->getChromaKeyLuminositySmoothness();
+float Keyer::getChromaKeyValueSmoothness() const noexcept {
+	return (*this)->getChromaKeyValueSmoothness();
 }
 
 

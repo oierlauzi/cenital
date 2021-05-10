@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Controller.h"
+
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Utils/Pimpl.h>
 
@@ -33,6 +35,8 @@ public:
 	std::vector<std::reference_wrapper<ZuazoBase>>			listElements(std::type_index type);
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements() const;
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements(std::type_index type) const;
+
+	static void 											registerCommands(Controller::Node& node);
 
 };
 	

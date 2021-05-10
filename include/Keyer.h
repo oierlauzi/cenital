@@ -36,7 +36,6 @@ public:
 
 	Keyer(	Zuazo::Instance& instance,
 			std::string name,
-			const Zuazo::RendererBase* renderer,
 			Zuazo::Math::Vec2f size );
 
 	Keyer(const Keyer& other) = delete;
@@ -87,11 +86,11 @@ public:
 	void									setChromaKeySaturationSmoothness(float smoothness);
 	float									getChromaKeySaturationSmoothness() const noexcept;
 
-	void									setChromaKeyLuminosityThreshold(float threshold);
-	float									getChromaKeyLuminosityThreshold() const noexcept;
+	void									setChromaKeyValueThreshold(float threshold);
+	float									getChromaKeyValueThreshold() const noexcept;
 
-	void									setChromaKeyLuminositySmoothness(float smoothness);
-	float									getChromaKeyLuminositySmoothness() const noexcept;
+	void									setChromaKeyValueSmoothness(float smoothness);
+	float									getChromaKeyValueSmoothness() const noexcept;
 
 
 	//Linear key
