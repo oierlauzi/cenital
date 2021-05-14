@@ -1,6 +1,10 @@
 #include <Controller.h>
 
+#include <mutex>
+
 namespace Cenital {
+
+using namespace Zuazo;
 
 /*
  * Controller::Result
@@ -58,7 +62,9 @@ const Controller::Node::Callback* Controller::Node::getPath(const std::string& t
 	return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
 }
 
-Controller::Result Controller::Node::operator()(Zuazo::ZuazoBase& base, TokenArray tokens) const {
+Controller::Result Controller::Node::operator()(ZuazoBase& base, 
+												TokenArray tokens ) const 
+{
 	Result result;
 
 	if(!tokens.empty()) {
@@ -74,29 +80,17 @@ Controller::Result Controller::Node::operator()(Zuazo::ZuazoBase& base, TokenArr
 					TokenArray(std::next(tokens.begin()), tokens.cend())
 				);
 			}
-		} else if(m_fallback) {
-			//No luck, try with the fallback
-			result = m_fallback(
-				base,
-				TokenArray(tokens.begin(), tokens.cend())
-			);
 		}
 	}
 
 	return result;
 }
 
-void Controller::Node::setFallback(Callback cbk) {
-	m_fallback = std::move(cbk);
-}
-
-const Controller::Node::Callback& Controller::Node::getFallback() const noexcept {
-	return m_fallback;
-}
 
 
-
-Controller::Result Controller::Node::ping(Zuazo::ZuazoBase& base, TokenArray tokens) {
+Controller::Result Controller::Node::ping(	ZuazoBase& base, 
+											TokenArray tokens ) 
+{
 	Result result;
 
 	if(tokens.empty()) {
@@ -131,6 +125,7 @@ const Controller::Node& Controller::getRootNode() const noexcept {
 
 
 Controller::Result Controller::process(TokenArray tokens) {
+	std::lock_guard<Instance> lock(m_baseObject.get().getInstance());
 	const auto result = m_root(m_baseObject, tokens);
 
 	if(result.getType() == Result::Type::SUCCESS) {

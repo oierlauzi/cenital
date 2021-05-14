@@ -48,7 +48,8 @@ public:
 
 	class Node {
 	public:
-		using Callback = std::function<Result(Zuazo::ZuazoBase&, TokenArray)>;
+		using Callback = std::function<Result(	Zuazo::ZuazoBase&, 
+												TokenArray )>;
 
 		Node() = default;
 		Node(std::initializer_list<std::pair<const std::string, Callback>> ilist);
@@ -63,18 +64,16 @@ public:
 		void 											removePath(const std::string& token);
 		const Callback* 								getPath(const std::string& token) const;
 
-		void											setFallback(Callback cbk);
-		const Callback&									getFallback() const noexcept;
+		Result 											operator()(	Zuazo::ZuazoBase& base, 
+																	TokenArray tokens ) const;
 
-		Result 											operator()(Zuazo::ZuazoBase& base, TokenArray tokens) const;
-
-		static Result 									ping(Zuazo::ZuazoBase& base, TokenArray tokens);
+		static Result 									ping(	Zuazo::ZuazoBase& base, 
+																TokenArray tokens );
 
 		static const std::string PING_PATH;
 
 	private:
 		std::unordered_map<std::string, Callback>		m_paths;
-		Callback										m_fallback;
 
 	};
 

@@ -151,7 +151,7 @@ int main(int argc, const char* const* argv) {
 		Zuazo::Modules::Window::get(),
 		Zuazo::Modules::FFmpeg::get(),
 		Zuazo::Modules::Magick::get(),
-		//Zuazo::Modules::NDI::get(), //TODO
+		Zuazo::Modules::NDI::get(),
 		Zuazo::Modules::Compositor::get(),
 	};
 

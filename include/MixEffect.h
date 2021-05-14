@@ -43,15 +43,6 @@ public:
 		COUNT
 	};
 
-	enum class OverlayTransition {
-		NONE = -1,
-
-		CUT,
-		FADE,
-
-		COUNT
-	};
-
 	static constexpr auto NO_SIGNAL = ~size_t(0);
 
 	MixEffect(	Zuazo::Instance& instance,
@@ -76,29 +67,62 @@ public:
 	Output&									getPreviewOutput() noexcept;
 	const Output&							getPreviewOutput() const noexcept;
 
+
 	void									setBackground(OutputBus bus, size_t idx);
 	size_t									getBackground(OutputBus bus) const noexcept;
+	void									setProgram(size_t idx);
+	size_t									getProgram() const noexcept;
+	void									setPreview(size_t idx);
+	size_t									getPreview() const noexcept;
+
 
 	void									cut();
-	void									playTransition();
+	void									transition();
 
-	void									setTransitionProgress(float progress);
-	float									getTransitionProgress() const noexcept;
+	void									setTransitionBar(float progress);
+	float									getTransitionBar() const noexcept;
 
-	void									setTransitionSlot(OutputBus bus);
+	void									setTransitionSlot(OutputBus slot);
 	OutputBus								getTransitionSlot() const noexcept;
-	std::unique_ptr<TransitionBase>			setTransition(std::unique_ptr<TransitionBase> transition);
-	const TransitionBase*					getTransition() const noexcept;
+
+	void									addTransition(std::unique_ptr<TransitionBase> transition);
+	std::unique_ptr<TransitionBase>			removeTransition(std::string_view name);
+	TransitionBase*							getTransition(std::string_view name);
+	const TransitionBase*					getTransition(std::string_view name) const;
+	void									selectTransition(std::string_view name);
+	TransitionBase*							getSelectedTransition() noexcept;
+	const TransitionBase*					getSelectedTransition() const noexcept;
+
 
 
 	void									setOverlayCount(OverlaySlot slot, size_t count);
 	size_t									getOverlayCount(OverlaySlot slot) const;
+	void									setUpstreamOverlayCount(size_t count);
+	size_t									getUpstreamOverlayCount() const;
+	void									setDownstreamOverlayCount(size_t count);
+	size_t									getDownstreamOverlayCount() const;
+
 	Keyer&									getOverlay(OverlaySlot slot, size_t idx);
 	const Keyer&							getOverlay(OverlaySlot slot, size_t idx) const;
+	Keyer&									getUpstreamOverlay(size_t idx);
+	const Keyer&							getUpstreamOverlay(size_t idx) const;
+	Keyer&									getDownstreamOverlay(size_t idx);
+	const Keyer&							getDownstreamOverlay(size_t idx) const;
+
 	void									setOverlayVisible(OverlaySlot slot, size_t idx, bool visible);
 	bool									getOverlayVisible(OverlaySlot slot, size_t idx) const;
+	void									setUpstreamOverlayVisible(size_t idx, bool visible);
+	bool									getUpstreamOverlayVisible(size_t idx) const;
+	void									setDownstreamOverlayVisible(size_t idx, bool visible);
+	bool									getDownstreamOverlayVisible(size_t idx) const;
+
 	void									setOverlayTransition(OverlaySlot slot, size_t idx, bool transition);
 	bool									getOverlayTransition(OverlaySlot slot, size_t idx) const;
+	void									setUpstreamOverlayTransition(size_t idx, bool transition);
+	bool									getUpstreamOverlayTransition(size_t idx) const;
+	void									setDownstreamOverlayTransition(size_t idx, bool transition);
+	bool									getDownstreamOverlayTransition(size_t idx) const;
+
 
 	static void 							registerCommands(Controller::Node& node);
 
