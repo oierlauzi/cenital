@@ -1,6 +1,7 @@
 #include <Mixer.h>
 
-#include <ControllerFunction.h>
+#include <Control/Node.h>
+#include <Control/Message.h>
 
 #include <zuazo/Video.h>
 #include <zuazo/Signal/Input.h>
@@ -9,16 +10,21 @@ namespace Cenital {
 
 using namespace Zuazo;
 
-static Controller::Result listElements(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void listElements(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.empty()) {
+	if(tokens.size() == level) {
 		assert(typeid(base) == typeid(Mixer));
 		const auto& mixer = static_cast<const Mixer&>(base);
 
 		const auto elements = mixer.listElements();
 		
-		std::vector<std::string> payload;
+		std::vector<std::string>& payload = response.getPayload();
+		payload.clear();
 		payload.reserve(elements.size());
 		std::transform(
 			elements.cbegin(), elements.cend(),
@@ -28,25 +34,27 @@ static Controller::Result listElements(ZuazoBase& base, Controller::TokenArray t
 			}
 		);
 
-		result.setType(Controller::Result::Type::RESPONSE);
-		result.setPayload(std::move(payload));
+		response.setType(Control::Message::Type::RESPONSE);
 	}
-
-	return result;
 }
 
-static Controller::Result listInputs(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void listInputs(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == 1) {
+	if(tokens.size() == (level + 1)) {
 		assert(typeid(base) == typeid(Mixer));
 		const auto& mixer = static_cast<const Mixer&>(base);
 
-		const auto* element = mixer.getElement(tokens[0]);
+		const auto* element = mixer.getElement(tokens[level]);
 		if(element) {
 			const auto pads = element->getPads<Signal::Input<Video>>();
 
-			std::vector<std::string> payload;
+			std::vector<std::string>& payload = response.getPayload();
+			payload.clear();
 			payload.reserve(pads.size());
 			std::transform(
 				pads.cbegin(), pads.cend(),
@@ -56,26 +64,28 @@ static Controller::Result listInputs(ZuazoBase& base, Controller::TokenArray tok
 				}
 			);
 
-			result.setType(Controller::Result::Type::RESPONSE);
-			result.setPayload(std::move(payload));
+			response.setType(Control::Message::Type::RESPONSE);
 		}
 	}
-
-	return result;
 }
 
-static Controller::Result listOutputs(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void listOutputs(Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == 1) {
+	if(tokens.size() == (level + 1)) {
 		assert(typeid(base) == typeid(Mixer));
 		const auto& mixer = static_cast<const Mixer&>(base);
 
-		const auto* element = mixer.getElement(tokens[0]);
+		const auto* element = mixer.getElement(tokens[level]);
 		if(element) {
 			const auto pads = element->getPads<Signal::Output<Video>>();
 
-			std::vector<std::string> payload;
+			std::vector<std::string>& payload = response.getPayload();
+			payload.clear();
 			payload.reserve(pads.size());
 			std::transform(
 				pads.cbegin(), pads.cend(),
@@ -85,25 +95,26 @@ static Controller::Result listOutputs(ZuazoBase& base, Controller::TokenArray to
 				}
 			);
 
-			result.setType(Controller::Result::Type::RESPONSE);
-			result.setPayload(std::move(payload));
+			response.setType(Control::Message::Type::RESPONSE);
 		}
 	}
-
-	return result;
 }
 
-static Controller::Result connect(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void connect(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == 4) {
+	if(tokens.size() == (level + 4)) {
 		//Some aliases
 		assert(typeid(base) == typeid(Mixer));
 		auto& mixer = static_cast<Mixer&>(base);
-		const auto& srcName = tokens[0];
-		const auto& srcPort = tokens[1];
-		const auto& dstName = tokens[2];
-		const auto& dstPort = tokens[3];
+		const auto& srcName = tokens[level + 0];
+		const auto& srcPort = tokens[level + 1];
+		const auto& dstName = tokens[level + 2];
+		const auto& dstPort = tokens[level + 3];
 
 		//Obtain the referred elements
 		auto* src = mixer.getElement(srcName);
@@ -115,23 +126,26 @@ static Controller::Result connect(ZuazoBase& base, Controller::TokenArray tokens
 			if(srcPad && dstPad) {
 				//Pads exist, connect them
 				*dstPad << *srcPad;
-				result.setType(Controller::Result::Type::SUCCESS);
+				response.getPayload() = request.getPayload();
+				response.setType(Control::Message::Type::BROADCAST);
 			}
 		}
 	}
-
-	return result;
 }
 
-static Controller::Result disconnect(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void disconnect(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == 2) {
+	if(tokens.size() == (level + 2)) {
 		//Some aliases
 		assert(typeid(base) == typeid(Mixer));
 		auto& mixer = static_cast<Mixer&>(base);
-		const auto& dstName = tokens[0];
-		const auto& dstPort = tokens[1];
+		const auto& dstName = tokens[level + 0];
+		const auto& dstPort = tokens[level + 1];
 
 		//Obtain the referred elements
 		auto* dst = mixer.getElement(dstName);
@@ -141,24 +155,26 @@ static Controller::Result disconnect(ZuazoBase& base, Controller::TokenArray tok
 			if(dstPad) {
 				//Pad exists, disconnect it
 				*dstPad << Signal::noSignal;
-				result.setType(Controller::Result::Type::SUCCESS);
+				response.getPayload() = request.getPayload();
+				response.setType(Control::Message::Type::BROADCAST);
 			}	
 		}
 	}
-
-
-	return result;
 }
 
-static Controller::Result getSource(ZuazoBase& base, Controller::TokenArray tokens) {
-	Controller::Result result;
+static void getSource(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == 2) {
+	if(tokens.size() == (level + 2)) {
 		//Some aliases
 		assert(typeid(base) == typeid(Mixer));
 		const auto& mixer = static_cast<Mixer&>(base);
-		const auto& dstName = tokens[0];
-		const auto& dstPort = tokens[1];
+		const auto& dstName = tokens[level + 0];
+		const auto& dstPort = tokens[level + 1];
 
 		//Obtain the referred elements
 		const auto* dst = mixer.getElement(dstName);
@@ -168,26 +184,35 @@ static Controller::Result getSource(ZuazoBase& base, Controller::TokenArray toke
 			if(dstPad) {
 				//Pad exists, obtain the source
 				const auto* dstPadSrc = dstPad->getSource();
-				std::string payload = dstPadSrc ? dstPadSrc->getName() : "";
 
-				result.setType(Controller::Result::Type::RESPONSE);
-				result.setPayload({ std::move(payload) });
+				std::vector<std::string>& payload = response.getPayload();
+				payload.clear();
+				if(dstPadSrc) {
+					payload.emplace_back(dstPadSrc->getName());
+				}
+
+				response.setType(Control::Message::Type::RESPONSE);
 			}	
 
 		}
 	}
-
-
-	return result;
 }
 
-void Mixer::registerCommands(Controller::Node& node) {
-	node.addPath("listElements", 	Cenital::listElements);
-	node.addPath("listInputs", 		Cenital::listInputs);
-	node.addPath("listOutputs", 	Cenital::listOutputs);
+void Mixer::registerCommands(Control::Node& node) {
+	Control::Node inputNode ({
+		{ "list",	Cenital::listInputs },
+		{ "source",	Cenital::getSource }
+	});
+
+	Control::Node outputNode ({
+		{ "list",	Cenital::listOutputs }
+	});
+
+	node.addPath("list", 			Cenital::listElements);
 	node.addPath("connect", 		Cenital::connect);
 	node.addPath("disconnect", 		Cenital::disconnect);
-	node.addPath("getSource", 		Cenital::getSource);
+	node.addPath("input", 			std::move(inputNode));
+	node.addPath("output", 			std::move(outputNode));
 }
 
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Controller.h"
+#include "Control/Node.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Utils/Pimpl.h>
@@ -31,12 +31,19 @@ public:
 	ZuazoBase*												getElement(std::string_view name) noexcept;
 	const ZuazoBase*										getElement(std::string_view name) const noexcept;
 
+	bool													connect(std::string_view dstName,
+																	std::string_view dstPort,
+																	std::string_view srcName,
+																	std::string_view srcPort );
+	bool													disconnect(	std::string_view dstName,
+																		std::string_view dstPort );
+
 	std::vector<std::reference_wrapper<ZuazoBase>>			listElements();
 	std::vector<std::reference_wrapper<ZuazoBase>>			listElements(std::type_index type);
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements() const;
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements(std::type_index type) const;
 
-	static void 											registerCommands(Controller::Node& node);
+	static void 											registerCommands(Control::Node& node);
 
 };
 	

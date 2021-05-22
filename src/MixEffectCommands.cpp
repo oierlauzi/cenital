@@ -1,9 +1,10 @@
 #include <MixEffect.h>
 
 #include <Mixer.h>
-#include <MixerNode.h>
 
-#include <ControllerFunction.h>
+#include <Control/Node.h>
+#include <Control/MixerNode.h>
+#include <Control/Generic.h>
 
 
 
@@ -11,133 +12,194 @@ namespace Cenital {
 
 using namespace Zuazo;
 
-static Controller::Result setInputCount(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, size_t) = [] (MixEffect& mixEffect, size_t cnt) -> void {
-		mixEffect.setInputCount(cnt);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
+static void setInputCount(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::setInputCount,
+		base, request, level, response
+	);
 }
 
-static Controller::Result getInputCount(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr size_t (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> size_t {
-		return mixEffect.getInputCount();
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
+static void getInputCount(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	Control::invokeGetter(
+		&MixEffect::getInputCount,
+		base, request, level, response
+	);
 }
 
-
-static Controller::Result setProgram(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, size_t) = [] (MixEffect& mixEffect, size_t idx) -> void {
-		mixEffect.setProgram(idx);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
+static void setProgram(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::setProgram,
+		base, request, level, response
+	);
 }
 
-static Controller::Result getProgram(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr size_t (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> size_t {
-		return mixEffect.getProgram();
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
+static void getProgram(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	Control::invokeGetter(
+		&MixEffect::getProgram,
+		base, request, level, response
+	);
 }
 
-static Controller::Result setPreview(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, size_t) = [] (MixEffect& mixEffect, size_t idx) -> void {
-		mixEffect.setPreview(idx);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
+static void setPreview(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::setPreview,
+		base, request, level, response
+	);
 }
 
-static Controller::Result getPreview(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr size_t (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> size_t {
-		return mixEffect.getPreview();
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
-}
-
-
-static Controller::Result cut(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> void {
-		mixEffect.cut();
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
-}
-
-static Controller::Result transition(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> void {
-		mixEffect.transition();
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
-}
-
-static Controller::Result setTransitionBar(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, float) = [] (MixEffect& mixEffect, float t) -> void {
-		mixEffect.setTransitionBar(t);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
-}
-
-static Controller::Result getTransitionBar(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr float (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> float {
-		return mixEffect.getTransitionBar();
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
-}
-
-static Controller::Result setPreviewTransitionEnable(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, bool) = [] (MixEffect& mixEffect, bool preview) -> void {
-		mixEffect.setTransitionSlot(preview ? MixEffect::OutputBus::PREVIEW : MixEffect::OutputBus::PROGRAM);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
-}
-
-static Controller::Result getPreviewTransitionEnable(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr bool (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> bool {
-		return mixEffect.getTransitionSlot() == MixEffect::OutputBus::PREVIEW;
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
-}
-
-static Controller::Result setSelectedTransition(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr void (*fn)(MixEffect&, std::string_view) = [] (MixEffect& mixEffect, std::string_view name) -> void {
-		mixEffect.selectTransition(name);
-	};
-	return Cenital::invokeSetter(fn, base, tokens);
-}
-
-static Controller::Result getSelectedTransition(ZuazoBase& base, Controller::TokenArray tokens) {
-	constexpr std::string_view (*fn)(MixEffect&) = [] (MixEffect& mixEffect) -> std::string_view {
-		constexpr std::string_view noSelection = "";
-
-		const auto* trans = mixEffect.getSelectedTransition();	
-		return trans ? trans->getName() : noSelection;
-	};
-	return Cenital::invokeGetter(fn, base, tokens);
+static void getPreview(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	Control::invokeGetter(
+		&MixEffect::getPreview,
+		base, request, level, response
+	);
 }
 
 
+static void cut(Zuazo::ZuazoBase& base, 
+				const Control::Message& request,
+				size_t level,
+				Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::cut,
+		base, request, level, response
+	);
+}
+
+static void transition(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::transition,
+		base, request, level, response
+	);
+}
+
+static void setTransitionBar(	Zuazo::ZuazoBase& base, 
+								const Control::Message& request,
+								size_t level,
+								Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::setTransitionBar,
+		base, request, level, response
+	);
+}
+
+static void getTransitionBar(	Zuazo::ZuazoBase& base, 
+								const Control::Message& request,
+								size_t level,
+								Control::Message& response ) 
+{
+	Control::invokeGetter(
+		&MixEffect::getTransitionBar,
+		base, request, level, response
+	);
+}
+
+static void setPreviewTransitionEnable(	Zuazo::ZuazoBase& base, 
+										const Control::Message& request,
+										size_t level,
+										Control::Message& response ) 
+{
+	Control::invokeSetter<MixEffect, bool>( 
+		[] (MixEffect& mixEffect, bool ena) {
+			mixEffect.setTransitionSlot(ena ? MixEffect::OutputBus::PREVIEW : MixEffect::OutputBus::PROGRAM);
+		},
+		base, request, level, response
+	);
+}
+
+static void getPreviewTransitionEnable(	Zuazo::ZuazoBase& base, 
+										const Control::Message& request,
+										size_t level,
+										Control::Message& response ) 
+{
+	Control::invokeGetter<bool, MixEffect>( 
+		[] (const MixEffect& mixEffect) -> bool{
+			return mixEffect.getTransitionSlot() == MixEffect::OutputBus::PREVIEW;
+		},
+		base, request, level, response
+	);
+}
+
+static void setSelectedTransition(	Zuazo::ZuazoBase& base, 
+									const Control::Message& request,
+									size_t level,
+									Control::Message& response ) 
+{
+	Control::invokeSetter(
+		&MixEffect::selectTransition,
+		base, request, level, response
+	);
+}
+
+static void getSelectedTransition(	Zuazo::ZuazoBase& base, 
+									const Control::Message& request,
+									size_t level,
+									Control::Message& response ) 
+{
+	Control::invokeGetter<const std::string&, MixEffect>( 
+		[] (const MixEffect& mixEffect) -> const std::string& {
+			static const std::string noSelection = "";
+			const auto* trans = mixEffect.getSelectedTransition();	
+			return trans ? trans->getName() : noSelection;
+		},
+		base, request, level, response
+	);
+}
 
 
-void MixEffect::registerCommands(Controller::Node& node) {
-	Controller::Node meNode = {
-		{ "setInputCount",				Cenital::setInputCount },
-		{ "getInputCount",				Cenital::getInputCount },
 
-		{ "setProgram",					Cenital::setProgram },
-		{ "getProgram", 				Cenital::getProgram },
-		{ "setPreview",					Cenital::setPreview },
-		{ "getPreview", 				Cenital::getPreview },
 
-		{ "cut",						Cenital::cut },
-		{ "transition", 				Cenital::transition },
-		{ "setTBar",					Cenital::setTransitionBar },
-		{ "getTBar", 					Cenital::getTransitionBar },
-		{ "setPreviewTransitionEnable",	Cenital::setPreviewTransitionEnable },
-		{ "getPreviewTransitionEnable", Cenital::getPreviewTransitionEnable },
-		{ "setSelectedTransition",		Cenital::setSelectedTransition },
-		{ "getSelectedTransition", 		Cenital::getSelectedTransition },
-	};
 
-	node.addPath("mixEffect", MixerNode<MixEffect>(std::move(meNode)));
+void MixEffect::registerCommands(Control::Node& node) {
+	Control::MixerNode mixerNode(
+		typeid(MixEffect),
+		Control::invokeBaseConstructor<MixEffect>,
+		Control::Node({
+			{ "inputs",				Control::makeAttributeNode(Cenital::setInputCount, Cenital::getInputCount) },
+
+			{ "program",			Control::makeAttributeNode(Cenital::setProgram, Cenital::getProgram) },
+			{ "preview",			Control::makeAttributeNode(Cenital::setPreview, Cenital::getPreview) },
+
+			{ "cut",				Cenital::cut },
+			{ "transition", 		Cenital::transition },
+			{ "t-bar",				Control::makeAttributeNode(Cenital::setTransitionBar, Cenital::getTransitionBar) },
+
+			{ "transition:preview",	Control::makeAttributeNode(Cenital::setPreviewTransitionEnable, Cenital::getPreviewTransitionEnable) },
+			{ "transition:effect",	Control::makeAttributeNode(Cenital::setSelectedTransition, Cenital::getSelectedTransition) },
+
+		})
+	);
+
+	node.addPath("mix-effect", std::move(mixerNode));
 }
 
 }

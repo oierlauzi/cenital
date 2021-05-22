@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Controller.h"
 #include "TransitionBase.h"
 #include "Keyer.h"
+#include "Control/Node.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Video.h>
@@ -124,7 +124,7 @@ public:
 	bool									getDownstreamOverlayTransition(size_t idx) const;
 
 
-	static void 							registerCommands(Controller::Node& node);
+	static void 							registerCommands(Control::Node& node);
 
 };
 

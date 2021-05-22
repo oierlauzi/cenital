@@ -1,7 +1,11 @@
 #include "Mixer.h"
-#include "Controller.h"
 
 #include "MixEffect.h"
+
+#include "Control/Controller.h"
+#include "Control/CLIView.h"
+#include "Control/WebSocketServer.h"
+#include "Control/TCPServer.h"
 
 #include <zuazo/Instance.h>
 #include <zuazo/Modules/Window.h>
@@ -17,73 +21,86 @@
 #include <cstdint>
 
 #include <tclap/CmdLine.h>
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/server.hpp>
 
 using namespace Cenital;
 
-//TODO Remove
-static void messageCallback(websocketpp::server<websocketpp::config::asio>* s, 
-							websocketpp::connection_hdl hdl, 
-							websocketpp::server<websocketpp::config::asio>::message_ptr msg ) 
-{
-	std::cout << "on_message called with hdl: " << hdl.lock().get()
-			  << " and message: " << msg->get_payload()
-			  << std::endl;
+static void registerCommands(Control::Controller& controller) {
+	auto& root = controller.getRootNode();
 
-	// check for a special command to instruct the server to stop listening so
-	// it can be cleanly exited.
-	if (msg->get_payload() == "stop-listening") {
-		s->stop_listening();
-		return;
-	}
-
-	try {
-		s->send(hdl, msg->get_payload(), msg->get_opcode());
-	} catch (websocketpp::exception const & e) {
-		std::cout << "Echo failed because: "
-				  << "(" << e.what() << ")" << std::endl;
-	}
+	//Register the commands we know ahead of time
+	Mixer::registerCommands(root);
+	MixEffect::registerCommands(root);
 }
 
 
 
-static std::unique_ptr<websocketpp::server<websocketpp::config::asio>> 
-createWebSocket(boost::asio::io_service& ios,
-				uint16_t port ) 
+static std::unique_ptr<Control::WebSocketServer> createWebSocketServer(	boost::asio::io_service& ios,
+																		uint16_t port,
+																		Control::CLIView& cliView )
 {
-	std::unique_ptr<websocketpp::server<websocketpp::config::asio>> result;
+	std::unique_ptr<Control::WebSocketServer> result;
 
-	//Only create if the port is valid
-	if(port > 0) {
-		//Create the server object
-		result = Zuazo::Utils::makeUnique<websocketpp::server<websocketpp::config::asio>>();
-		
-		//Initialize Asio
-		result->init_asio(&ios);
+	if(port > 0) { //0 port is used to disable the service
+		result = Zuazo::Utils::makeUnique<Control::WebSocketServer>(ios, port);
 
-		//Register the message callback //TODO
-		result->set_message_handler(
-			std::bind(&messageCallback, result.get(), std::placeholders::_1, std::placeholders::_2)
+		result->setConnectionOpenCallback(
+			[&cliView, &server = *result] (Control::WebSocketServer::SessionPtr session) -> void {
+				cliView.addListener(
+					[&server, session] (const std::string& msg) -> void {
+						server.send(session, msg);
+					}
+				);
+			}
+		);
+		//TODO no close callback
+		result->setMessageCallback(
+			[&cliView, &srv = *result] (Control::WebSocketServer::SessionPtr session, Control::WebSocketServer::Message msg) {
+				std::string response;
+				cliView.parse(msg->get_payload(), response);
+				srv.send(std::move(session), std::move(response));
+			}
 		);
 
-		//Configure the port
-		result->listen(port);
-
-		//Start the server accept loop
-		result->start_accept();
+		result->startAccept();
 	}
 
 	return result;
 }
 
-static void registerCommands(Controller& controller) {
-	auto& root = controller.getRootNode();
+static std::unique_ptr<Control::TCPServer> createTCPServer(	boost::asio::io_service& ios,
+															uint16_t port,
+															Control::CLIView& cliView  )
+{
+	std::unique_ptr<Control::TCPServer> result;
 
-	//Register the commands we know ahead of time
-	Mixer::registerCommands(root);
-	//MixEffect::registerCommands(root);
+	if(port > 0) { //0 port is used to disable the service
+		result = Zuazo::Utils::makeUnique<Control::TCPServer>(ios, port);
+
+		result->setConnectionOpenCallback(
+			[&cliView, &server = *result] (Control::TCPServer::SessionPtr session) -> void {
+				cliView.addListener(
+					[&server, session] (const std::string& msg) -> void {
+						server.send(session, msg);
+					}
+				);
+			}
+		);
+		//TODO no close callback
+		result->setMessageCallback(
+			[&cliView, &srv = *result] (Control::TCPServer::SessionPtr session, std::string msg) {
+				std::string response;
+				cliView.parse(msg, response);
+				srv.send(std::move(session), std::move(response));
+			}
+		);
+
+		result->startAccept();
+	}
+
+	return result;
 }
+
+
 
 static void wait(std::unique_lock<Zuazo::Instance>& lock, std::string_view keyword) {
 	//Show running message
@@ -97,6 +114,9 @@ static void wait(std::unique_lock<Zuazo::Instance>& lock, std::string_view keywo
 	} while(response != keyword);
 	lock.lock();
 }
+
+
+
 
 
 int main(int argc, const char* const* argv) {
@@ -124,12 +144,21 @@ int main(int argc, const char* const* argv) {
 	);
 	TCLAP::ValueArg<uint16_t> webSocketPortArg(
 		"w", "web-socket-port", 			//Arguments
-		"Port used by the web socket. 0 disables it. Default: 80",//Description
+		"Port used by the WebSocket CLI. 0 disables it. Default: 80",//Description
 		false, 								//Required
 		80, 								//Default value
 		"port", 							//Type description
 		cmd									//Command parser
 	);
+	TCLAP::ValueArg<uint16_t> tcpPortArg(
+		"t", "tcp-port", 					//Arguments
+		"Port used by the TCP CLI. 0 disables it. Default: 9600",//Description
+		false, 								//Required
+		9600, 								//Default value
+		"port", 							//Type description
+		cmd									//Command parser
+	);
+	
 
 	//Create XORs between arguments
 
@@ -139,7 +168,7 @@ int main(int argc, const char* const* argv) {
 
 
 	/*****************************
-	 *    Zuazo Instantiating    *
+	 *    Zuazo instantiation    *
 	 *****************************/
 
 	//Instantiate the Zuazo library
@@ -168,28 +197,46 @@ int main(int argc, const char* const* argv) {
 
 
 	/*****************************
-	 *   Mixer  and controller   *
-	 * 	    instantiation        *
+	 *    Mixer instantiation    *
 	 *****************************/
 
 	//Create the mixer
 	Mixer mixer(instance, "Application");
 	mixer.asyncOpen(lock);
 
-	Controller controller(mixer);
+
+
+	/*****************************
+	 *    Controller and views   *
+	 *       instantiation       *
+	 *****************************/
+
+	Control::Controller controller(mixer);
 	registerCommands(controller);
+
+	Control::CLIView cliView(controller);
+	controller.addView(cliView);
 
 
 
 	/*****************************
-	 *   Service Instantiating   *
+	 *   Service instantiation   *
 	 *****************************/
 
 	//Create Boost's I/O service
 	boost::asio::io_service ios;
 
-	//Instantiate the web socket
-	const auto wsServer = createWebSocket(ios, webSocketPortArg.getValue());
+	//Instantiate all the services
+	const auto webSocketServer = createWebSocketServer(
+		ios, 
+		webSocketPortArg.getValue(),
+		cliView
+	);
+	const auto tcpServer = createTCPServer(
+		ios, 
+		tcpPortArg.getValue(),
+		cliView
+	);
 
 	//Create a thread for running the services
 	std::thread serviceThread(

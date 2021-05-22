@@ -1,5 +1,9 @@
 #include <Mixer.h>
 
+#include <zuazo/Video.h>
+#include <zuazo/Signal/Input.h>
+#include <zuazo/Signal/Output.h>
+
 #include <unordered_map>
 #include <cassert>
 
@@ -122,6 +126,50 @@ struct MixerImpl {
 		return result;
 	}
 
+	bool connect(	std::string_view dstName,
+					std::string_view dstPort,
+					std::string_view srcName,
+					std::string_view srcPort )
+	{
+		bool result = false;
+
+		//Obtain the referred elements
+		auto* dst = getElement(dstName);
+		auto* src = getElement(srcName);
+		if(dst && src) {
+			//Obtain the referred pads. 
+			auto* dstPad = dst->getPad<Signal::Input<Video>>(dstPort);
+			auto* srcPad = src->getPad<Signal::Output<Video>>(srcPort);
+			if(dstPad && srcPad) {
+				//Pads exist, connect them
+				*dstPad << *srcPad;
+				result = true;
+			}
+		}
+
+		return result;
+	}
+
+	bool disconnect(std::string_view dstName,
+					std::string_view dstPort )
+	{
+		bool result = false;
+
+		//Obtain the referred elements
+		auto* dst = getElement(dstName);
+		if(dst) {
+			//Obtain the referred pads. 
+			auto* dstPad = dst->getPad<Signal::Input<Video>>(dstPort);
+			if(dstPad) {
+				//Pads exist, connect them
+				*dstPad << Signal::noSignal;
+				result = true;
+			}
+		}
+
+		return result;
+	}
+
 	std::vector<std::reference_wrapper<ZuazoBase>> listElements() const {
 		std::vector<std::reference_wrapper<ZuazoBase>> result;
 
@@ -193,6 +241,21 @@ ZuazoBase* Mixer::getElement(std::string_view name) noexcept {
 
 const ZuazoBase* Mixer::getElement(std::string_view name) const noexcept {
 	return (*this)->getElement(name);
+}
+
+
+bool Mixer::connect(std::string_view dstName,
+					std::string_view dstPort,
+					std::string_view srcName,
+					std::string_view srcPort )
+{
+	return (*this)->connect(dstName, dstPort, srcName, srcPort);
+}
+
+bool Mixer::disconnect(	std::string_view dstName,
+						std::string_view dstPort )
+{
+	return (*this)->disconnect(dstName, dstPort);
 }
 
 
