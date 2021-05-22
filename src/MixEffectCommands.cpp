@@ -184,16 +184,16 @@ void MixEffect::registerCommands(Control::Node& node) {
 		typeid(MixEffect),
 		Control::invokeBaseConstructor<MixEffect>,
 		Control::Node({
-			{ "inputs",				Control::makeAttributeNode(Cenital::setInputCount, Cenital::getInputCount) },
+			{ "input:count",		Control::makeAttributeNode(Cenital::setInputCount, Cenital::getInputCount) },
 
-			{ "program",			Control::makeAttributeNode(Cenital::setProgram, Cenital::getProgram) },
-			{ "preview",			Control::makeAttributeNode(Cenital::setPreview, Cenital::getPreview) },
+			{ "pgm",				Control::makeAttributeNode(Cenital::setProgram, Cenital::getProgram) },
+			{ "pvw",				Control::makeAttributeNode(Cenital::setPreview, Cenital::getPreview) },
 
 			{ "cut",				Cenital::cut },
 			{ "transition", 		Cenital::transition },
 			{ "t-bar",				Control::makeAttributeNode(Cenital::setTransitionBar, Cenital::getTransitionBar) },
 
-			{ "transition:preview",	Control::makeAttributeNode(Cenital::setPreviewTransitionEnable, Cenital::getPreviewTransitionEnable) },
+			{ "transition:pvw",		Control::makeAttributeNode(Cenital::setPreviewTransitionEnable, Cenital::getPreviewTransitionEnable) },
 			{ "transition:effect",	Control::makeAttributeNode(Cenital::setSelectedTransition, Cenital::getSelectedTransition) },
 
 		})

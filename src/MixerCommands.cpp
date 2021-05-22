@@ -200,15 +200,15 @@ static void getSource(	Zuazo::ZuazoBase& base,
 
 void Mixer::registerCommands(Control::Node& node) {
 	Control::Node inputNode ({
-		{ "list",	Cenital::listInputs },
-		{ "source",	Cenital::getSource }
+		{ "ls",						Cenital::listInputs },
+		{ "src",					Cenital::getSource }
 	});
 
 	Control::Node outputNode ({
-		{ "list",	Cenital::listOutputs }
+		{ "ls",						Cenital::listOutputs }
 	});
 
-	node.addPath("list", 			Cenital::listElements);
+	node.addPath("ls", 				Cenital::listElements);
 	node.addPath("connect", 		Cenital::connect);
 	node.addPath("disconnect", 		Cenital::disconnect);
 	node.addPath("input", 			std::move(inputNode));
