@@ -46,6 +46,11 @@ private:
 	AimCallback							m_aimCallback;
 	std::type_index						m_type;
 
+
+	void								help(	Zuazo::ZuazoBase& base, 
+												const Message& request,
+												size_t level,
+												Message& response  ) const;
 	void								add(Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,

@@ -27,8 +27,8 @@ struct MixTransitionImpl {
 
 	MixTransitionImpl(MixTransition& owner, Instance& instance)
 		: owner(owner)
-		, prevIn("prevIn")
-		, postIn("postIn")
+		, prevIn(owner, "prevIn")
+		, postIn(owner, "postIn")
 		, prevSurface(instance, "prevSurface", Math::Vec2f())
 		, postSurface(instance, "postSurface", Math::Vec2f())
 		, layerReferences{ postSurface, prevSurface }
@@ -49,6 +49,8 @@ struct MixTransitionImpl {
 
 	void moved(ZuazoBase& base) {
 		owner = static_cast<MixTransition&>(base);
+		prevIn.setLayout(base);
+		postIn.setLayout(base);
 	}
 
 	void open(ZuazoBase&) {

@@ -2,7 +2,6 @@
 
 #include <Mixer.h>
 
-#include <Control/Node.h>
 #include <Control/MixerNode.h>
 #include <Control/Generic.h>
 

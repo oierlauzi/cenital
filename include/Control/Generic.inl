@@ -180,15 +180,50 @@ invokeBaseConstructor(	Zuazo::Instance& instance,
 
 
 inline Node makeAttributeNode(	Node::Callback setter,
-								Node::Callback getter )
+								Node::Callback getter,
+								Node::Callback lister,
+								Node::Callback unsetter )
 {
-	assert(setter);
-	assert(getter);
+	Node result;
 
-	return Node ({
-		{ "set", std::move(setter) },
-		{ "get", std::move(getter) }
-	});
+	if(setter) {
+		result.addPath("set", std::move(setter));
+	}
+
+	if(getter) {
+		result.addPath("get", std::move(getter));
+	}
+
+	if(lister) {
+		result.addPath("enum", std::move(lister));
+	}
+
+	if(unsetter) {
+		result.addPath("unset", std::move(unsetter));
+	}
+
+	return result;
+}
+
+inline Node makeCollectionNode(	Node::Callback adder,
+								Node::Callback remover,
+								Node::Callback lister )
+{
+	Node result;
+
+	if(adder) {
+		result.addPath("add", std::move(adder));
+	}
+
+	if(remover) {
+		result.addPath("rm", std::move(remover));
+	}
+
+	if(lister) {
+		result.addPath("ls", std::move(lister));
+	}
+
+	return result;	
 }
 
 }

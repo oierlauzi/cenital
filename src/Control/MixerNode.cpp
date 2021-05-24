@@ -54,7 +54,11 @@ void MixerNode::operator()(	ZuazoBase& base,
 	if(level < tokens.size()) {
 		const auto& action = tokens[level];
 
-		if(action == "add") {
+		if(action == "help") {
+			help(base, request, level + 1, response);
+		} else if(action == "ping") {
+			Node::ping(base, request, level + 1, response);
+		} else if(action == "add") {
 			add(base, request, level + 1, response);
 		} else if(action == "rm") {
 			rm(base, request, level + 1, response);
@@ -64,6 +68,21 @@ void MixerNode::operator()(	ZuazoBase& base,
 			ls(base, request, level + 1, response);
 		}
 	}
+}
+
+
+
+void MixerNode::help(	Zuazo::ZuazoBase&, 
+						const Message& request,
+						size_t level,
+						Message& response  ) const
+{
+	const auto& tokens = request.getPayload();
+
+	if(level == tokens.size()) {
+		response.setType(Message::Type::RESPONSE);
+		response.getPayload() = { "help", "ping", "add", "rm", "aim", "ls" };
+	}	
 }
 
 void MixerNode::add(ZuazoBase& base, 

@@ -943,10 +943,10 @@ struct KeyerImpl {
 	
 
 	KeyerImpl(	Keyer& owner, 
-					Math::Vec2f size )
+				Math::Vec2f size )
 		: owner(owner)
-		, keyIn("keyIn")
-		, fillIn("fillIn")
+		, keyIn(owner, "keyIn")
+		, fillIn(owner, "fillIn")
 
 		, size(size)
 		, crop(1) //We'll fill its contents later
@@ -979,6 +979,8 @@ struct KeyerImpl {
 
 	void moved(ZuazoBase& base) {
 		owner = static_cast<Keyer&>(base);
+		keyIn.setLayout(base);
+		fillIn.setLayout(base);
 	}
 
 	void open(ZuazoBase& base, std::unique_lock<Instance>* lock = nullptr) {

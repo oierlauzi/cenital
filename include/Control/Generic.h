@@ -78,7 +78,13 @@ std::unique_ptr<Zuazo::ZuazoBase> invokeBaseConstructor(Zuazo::Instance& instanc
 
 
 Node makeAttributeNode(	Node::Callback setter,
-						Node::Callback getter );
+						Node::Callback getter,
+						Node::Callback lister = {},
+						Node::Callback unsetter = {} );
+
+Node makeCollectionNode(Node::Callback adder,
+						Node::Callback remover,
+						Node::Callback lister = {} );
 
 }
 

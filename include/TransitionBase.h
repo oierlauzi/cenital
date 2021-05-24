@@ -17,7 +17,7 @@ class TransitionBase
 	, public Zuazo::ClipBase
 {
 public:
-	using Input = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
+	using Input = Zuazo::Signal::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
 	using Layers = Zuazo::Utils::BufferView<const Zuazo::RendererBase::LayerRef>;
 	using SizeCallback = std::function<void(TransitionBase&, Zuazo::Math::Vec2f)>;
 

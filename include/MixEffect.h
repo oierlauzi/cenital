@@ -22,8 +22,8 @@ class MixEffect
 {
 	friend MixEffectImpl;
 public:
-	using Input = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
-	using Output = Zuazo::Signal::Layout::PadProxy<Zuazo::Signal::Output<Zuazo::Video>>;
+	using Input = Zuazo::Signal::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
+	using Output = Zuazo::Signal::PadProxy<Zuazo::Signal::Output<Zuazo::Video>>;
 
 	enum class OutputBus {
 		NONE = -1,

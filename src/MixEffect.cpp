@@ -138,8 +138,8 @@ struct MixEffectImpl {
 		: owner(owner)
 		, inputs{}
 		, outputs{
-			Output("pgmOut"), 
-			Output("pvwOut") }
+			Output(owner, "pgmOut"), 
+			Output(owner, "pvwOut") }
 		, compositors{
 			Compositor(instance, name + " - Program Compositor"),
 			Compositor(instance, name + " - Preview Compositor") }
@@ -175,6 +175,15 @@ struct MixEffectImpl {
 
 	void moved(ZuazoBase& base) {
 		owner = static_cast<MixEffect&>(base);
+
+		for(auto& pad : inputs) {
+			pad.setLayout(base);
+		}
+
+		for(auto& pad : outputs) {
+			pad.setLayout(base);
+		}
+		
 	}
 
 	void open(ZuazoBase& base, std::unique_lock<Instance>* lock = nullptr) {
@@ -297,9 +306,9 @@ struct MixEffectImpl {
 
 
 
-	void setInputCount(size_t count) {
+	void setInputCount(MixEffect& mixEffect, size_t count) {
 		if(inputs.size() != count) {
-			auto& mixEffect = owner.get();
+			assert(&mixEffect == &owner.get());
 
 			//Remove all the pads as they might be reallocated
 			for(auto& input : inputs) {
@@ -317,7 +326,7 @@ struct MixEffectImpl {
 				//We'll add elements
 				inputs.reserve(count);
 				while(inputs.size() < count) {
-					inputs.emplace_back(Signal::makeInputName<Video>(inputs.size()));
+					inputs.emplace_back(mixEffect, Signal::makeInputName<Video>(inputs.size()));
 				}
 			}
 
@@ -763,7 +772,7 @@ MixEffect& MixEffect::operator=(MixEffect&& other) = default;
 
 
 void MixEffect::setInputCount(size_t count) {
-	(*this)->setInputCount(count);
+	(*this)->setInputCount(*this, count);
 }
 
 size_t MixEffect::getInputCount() const noexcept {

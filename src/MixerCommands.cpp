@@ -2,6 +2,7 @@
 
 #include <Control/Node.h>
 #include <Control/Message.h>
+#include <Control/Generic.h>
 
 #include <zuazo/Video.h>
 #include <zuazo/Signal/Input.h>
@@ -9,6 +10,25 @@
 namespace Cenital {
 
 using namespace Zuazo;
+
+static void removeElement(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
+
+	if(tokens.size() == level + 1) {
+		assert(typeid(base) == typeid(Mixer));
+		auto& mixer = static_cast<Mixer&>(base);
+
+		const auto ret = mixer.eraseElement(tokens[level]);
+		if(ret) {
+			response.setType(Control::Message::Type::BROADCAST);
+			response.getPayload() = request.getPayload();
+		}
+	}
+}
 
 static void listElements(	Zuazo::ZuazoBase& base, 
 							const Control::Message& request,
@@ -59,7 +79,7 @@ static void listInputs(	Zuazo::ZuazoBase& base,
 			std::transform(
 				pads.cbegin(), pads.cend(),
 				std::back_inserter(payload),
-				[] (const Signal::Layout::PadProxy<Signal::Input<Video>>& el) -> std::string {
+				[] (const Signal::PadProxy<Signal::Input<Video>>& el) -> std::string {
 					return el.getName();
 				}
 			);
@@ -90,7 +110,7 @@ static void listOutputs(Zuazo::ZuazoBase& base,
 			std::transform(
 				pads.cbegin(), pads.cend(),
 				std::back_inserter(payload),
-				[] (const Signal::Layout::PadProxy<Signal::Output<Video>>& el) -> std::string {
+				[] (const Signal::PadProxy<Signal::Output<Video>>& el) -> std::string {
 					return el.getName();
 				}
 			);
@@ -111,24 +131,16 @@ static void connect(	Zuazo::ZuazoBase& base,
 		//Some aliases
 		assert(typeid(base) == typeid(Mixer));
 		auto& mixer = static_cast<Mixer&>(base);
-		const auto& srcName = tokens[level + 0];
-		const auto& srcPort = tokens[level + 1];
-		const auto& dstName = tokens[level + 2];
-		const auto& dstPort = tokens[level + 3];
+		const auto& dstName = tokens[level + 0];
+		const auto& dstPort = tokens[level + 1];
+		const auto& srcName = tokens[level + 2];
+		const auto& srcPort = tokens[level + 3];
 
-		//Obtain the referred elements
-		auto* src = mixer.getElement(srcName);
-		auto* dst = mixer.getElement(dstName);
-		if(src && dst) {
-			//Obtain the referred pads. 
-			auto* srcPad = src->getPad<Signal::Output<Video>>(srcPort);
-			auto* dstPad = dst->getPad<Signal::Input<Video>>(dstPort);
-			if(srcPad && dstPad) {
-				//Pads exist, connect them
-				*dstPad << *srcPad;
-				response.getPayload() = request.getPayload();
-				response.setType(Control::Message::Type::BROADCAST);
-			}
+		const auto ret = mixer.connect(dstName, dstPort, srcName, srcPort);
+
+		if(ret) {
+			response.getPayload() = request.getPayload();
+			response.setType(Control::Message::Type::BROADCAST);
 		}
 	}
 }
@@ -147,17 +159,11 @@ static void disconnect(	Zuazo::ZuazoBase& base,
 		const auto& dstName = tokens[level + 0];
 		const auto& dstPort = tokens[level + 1];
 
-		//Obtain the referred elements
-		auto* dst = mixer.getElement(dstName);
-		if(dst) {
-			//Obtain the referred pad
-			auto* dstPad = dst->getPad<Signal::Input<Video>>(dstPort);
-			if(dstPad) {
-				//Pad exists, disconnect it
-				*dstPad << Signal::noSignal;
-				response.getPayload() = request.getPayload();
-				response.setType(Control::Message::Type::BROADCAST);
-			}	
+		const auto ret = mixer.disconnect(dstName, dstPort);
+
+		if(ret) {
+			response.getPayload() = request.getPayload();
+			response.setType(Control::Message::Type::BROADCAST);
 		}
 	}
 }
@@ -188,7 +194,10 @@ static void getSource(	Zuazo::ZuazoBase& base,
 				std::vector<std::string>& payload = response.getPayload();
 				payload.clear();
 				if(dstPadSrc) {
-					payload.emplace_back(dstPadSrc->getName());
+					payload = { 
+						dstPadSrc->getLayout().getName(),
+						dstPadSrc->getName()
+					};
 				}
 
 				response.setType(Control::Message::Type::RESPONSE);
@@ -199,20 +208,35 @@ static void getSource(	Zuazo::ZuazoBase& base,
 }
 
 void Mixer::registerCommands(Control::Node& node) {
-	Control::Node inputNode ({
-		{ "ls",						Cenital::listInputs },
-		{ "src",					Cenital::getSource }
-	});
+	auto elementNode = Control::makeCollectionNode(
+		{}, 					//Add
+		Cenital::removeElement,	//Remove
+		Cenital::listElements	//Ls
+	);
 
-	Control::Node outputNode ({
-		{ "ls",						Cenital::listOutputs }
-	});
+	auto connectionNode = Control::makeAttributeNode(
+		Cenital::connect,	//Set
+		Cenital::getSource,	//Get
+		{},					//Enum
+		Cenital::disconnect	//Unset
+	);
 
-	node.addPath("ls", 				Cenital::listElements);
-	node.addPath("connect", 		Cenital::connect);
-	node.addPath("disconnect", 		Cenital::disconnect);
-	node.addPath("input", 			std::move(inputNode));
-	node.addPath("output", 			std::move(outputNode));
+	auto dstNode = Control::makeCollectionNode(
+		{}, 				//Add
+		{}, 				//Remove
+		Cenital::listInputs	//Ls
+	);
+	
+	auto srcNode = Control::makeCollectionNode(
+		{}, 				//Add
+		{}, 				//Remove
+		Cenital::listOutputs//Ls
+	);
+
+	node.addPath("element",			std::move(elementNode));
+	node.addPath("connection", 		std::move(connectionNode));
+	node.addPath("connection:dst", 	std::move(dstNode));
+	node.addPath("connection:src", 	std::move(srcNode));
 }
 
 }
