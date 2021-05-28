@@ -77,6 +77,13 @@ std::unique_ptr<Zuazo::ZuazoBase> invokeBaseConstructor(Zuazo::Instance& instanc
 														Zuazo::Utils::BufferView<const std::string> args );
 
 
+template<typename T>
+void enumerate(	Zuazo::ZuazoBase& base, 
+				const Message& request,
+				size_t level,
+				Message& response );
+
+
 Node makeAttributeNode(	Node::Callback setter,
 						Node::Callback getter,
 						Node::Callback lister = {},

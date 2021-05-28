@@ -1,5 +1,8 @@
 #include <MixEffect.h>
 
+#include <Transitions/Mix.h>
+#include <Transitions/DVE.h>
+
 #include <zuazo/Player.h>
 #include <zuazo/Signal/DummyPad.h>
 #include <zuazo/Renderers/Compositor.h>
@@ -73,9 +76,9 @@ struct MixEffectImpl {
 
 		bool getVisible(MixEffect::OutputBus bus) const {
 			switch(bus) {
-			case MixEffect::OutputBus::PROGRAM:
+			case MixEffect::OutputBus::program:
 				return getVisible();
-			case MixEffect::OutputBus::PREVIEW:
+			case MixEffect::OutputBus::preview:
 				return getVisible() != getTransition(); //xor
 			default:
 				throw std::runtime_error("Invalid bus");
@@ -108,11 +111,11 @@ struct MixEffectImpl {
 	using Output = Signal::DummyPad<Video>;
 	using Compositor = Renderers::Compositor;
 	using VideoSurface = Layers::VideoSurface;
-	using TransitionMap = std::unordered_map<std::string_view, std::unique_ptr<TransitionBase>>;
+	using TransitionMap = std::unordered_map<std::string_view, std::unique_ptr<Transitions::Base>>;
 	
-	static constexpr auto UPDATE_PRIORITY = Instance::PLAYER_PRIORITY; //Animation-like
-	static constexpr auto OUTPUT_BUS_CNT = static_cast<size_t>(MixEffect::OutputBus::COUNT);
-	static constexpr auto OVERLAY_CNT = static_cast<size_t>(MixEffect::OverlaySlot::COUNT);
+	static constexpr auto UPDATE_PRIORITY = Instance::playerPriority; //Animation-like
+	static constexpr auto OUTPUT_BUS_CNT = static_cast<size_t>(MixEffect::OutputBus::count);
+	static constexpr auto OVERLAY_CNT = static_cast<size_t>(MixEffect::OverlaySlot::count);
 
 	std::reference_wrapper<MixEffect>				owner;
 
@@ -127,7 +130,7 @@ struct MixEffectImpl {
 	VideoSurface									intermediateLayer;
 
 	TransitionMap									transitions;
-	TransitionBase*									selectedTransition;
+	Transitions::Base*								selectedTransition;
 	MixEffect::OutputBus							transitionSlot;
 
 	std::array<std::vector<Overlay>, OVERLAY_CNT>	overlays;
@@ -153,7 +156,7 @@ struct MixEffectImpl {
 		, intermediateLayer(createBackgroundLayer(instance, name + " - Intermediary Layer", referenceCompositor))
 		, transitions()
 		, selectedTransition(nullptr)
-		, transitionSlot(MixEffect::OutputBus::PROGRAM)
+		, transitionSlot(MixEffect::OutputBus::program)
 		, overlays{}
 	{
 		//Route the signals
@@ -260,7 +263,7 @@ struct MixEffectImpl {
 				const auto deltaTime = owner.get().getInstance().getDeltaT();
 
 				//Advance the time for the transition
-				selectedTransition->setRepeat(ClipBase::Repeat::NONE); //Ensure that it won't repeat
+				selectedTransition->setRepeat(ClipBase::Repeat::none); //Ensure that it won't repeat
 				selectedTransition->advanceNormalSpeed(deltaTime);
 
 				//If transition has ended, cut. This will also stop and rewind the transition
@@ -276,16 +279,16 @@ struct MixEffectImpl {
 	}
 
 
-	void videoModeCallback(VideoBase& base, const VideoMode& videoMode) {
+	void setVideoMode(VideoBase& base, const VideoMode& videoMode) {
 		auto& me = static_cast<MixEffect&>(base);
 		assert(&owner.get() == &me);
 
 		//Intermediate compositors will use a variant of the original videoMode
 		VideoMode intermediateVideoMode = videoMode;
-		intermediateVideoMode.setColorModel(Utils::MustBe<ColorModel>(ColorModel::RGB));
-		intermediateVideoMode.setColorTransferFunction(Utils::MustBe<ColorTransferFunction>(ColorTransferFunction::LINEAR));
-		intermediateVideoMode.setColorSubsampling(Utils::MustBe<ColorSubsampling>(ColorSubsampling::RB_444));
-		intermediateVideoMode.setColorRange(Utils::MustBe<ColorRange>(ColorRange::FULL));
+		intermediateVideoMode.setColorModel(Utils::MustBe<ColorModel>(ColorModel::rgb));
+		intermediateVideoMode.setColorTransferFunction(Utils::MustBe<ColorTransferFunction>(ColorTransferFunction::linear));
+		intermediateVideoMode.setColorSubsampling(Utils::MustBe<ColorSubsampling>(ColorSubsampling::rb444));
+		intermediateVideoMode.setColorRange(Utils::MustBe<ColorRange>(ColorRange::full));
 		intermediateVideoMode.setColorFormat(Utils::MustBe<ColorFormat>(ColorFormat::R16fG16fB16fA16f)); //TODO Maybe choose another one
 
 		for(size_t i = 0; i < OUTPUT_BUS_CNT; ++i) {
@@ -304,6 +307,19 @@ struct MixEffectImpl {
 		return me.getVideoMode();
 	}
 
+
+
+	void setScalingMode(ScalingMode scalingMode) {
+		for(auto& layer : backgroundLayers) {
+			layer.setScalingMode(scalingMode);
+		}
+	}
+
+	void setScalingFilter(ScalingFilter scalingFilter) {
+		for(auto& layer : backgroundLayers) {
+			layer.setScalingFilter(scalingFilter);
+		}
+	}
 
 
 	void setInputCount(MixEffect& mixEffect, size_t count) {
@@ -362,38 +378,11 @@ struct MixEffectImpl {
 
 
 	void setBackground(MixEffect::OutputBus bus, size_t idx) {
-		auto& bkgdInput = backgroundLayers.at(static_cast<size_t>(bus)).getInput();
-
-		if(idx < inputs.size()) {
-			bkgdInput << inputs[idx];
-		} else {
-			bkgdInput << Signal::noSignal;
-		}
+		setSource(backgroundLayers.at(static_cast<size_t>(bus)).getInput(), idx);
 	}
 
 	size_t getBackground(MixEffect::OutputBus bus) const noexcept {
-		size_t result = MixEffect::NO_SIGNAL;
-		auto& bkgdInput = backgroundLayers.at(static_cast<size_t>(bus)).getInput();
-
-		const auto source = bkgdInput.getSource();
-		if(source) {
-			//Find the source among the inputs. This could be done
-			//with some ptr trickery in O(1) time, however, it would
-			//be ugly. Hope the compiler does it
-			const auto ite = std::find_if(
-				inputs.cbegin(), inputs.cend(),
-				[source] (const Input& input) {
-					return &input.getOutput() == source;
-				}
-			);
-
-			//The input should be valid
-			assert(ite != inputs.cend());
-
-			result = std::distance(inputs.cbegin(), ite);
-		}
-
-		return result;
+		return getSource(backgroundLayers.at(static_cast<size_t>(bus)).getInput());
 	}
 
 
@@ -415,15 +404,8 @@ struct MixEffectImpl {
 			}
 		}
 
-		//Stop the transition just in case
-		if(selectedTransition) {
-			selectedTransition->stop();
-		}
-
-		//Ensure that the layers are configured without a transition in place
-		if(isTransitionEnabled()) {
-			configureLayers(false);
-		}
+		//Reset the transition
+		setTransitionBar(0.0f);
 	}
 
 	void transition() {
@@ -432,7 +414,7 @@ struct MixEffectImpl {
 			selectedTransition->play();
 
 			//Configure the layers if necessary
-			if(!isTransitionEnabled()) {
+			if(!isTransitionConfigured()) {
 				configureLayers(true);
 			}
 		} else {
@@ -445,22 +427,30 @@ struct MixEffectImpl {
 	void setTransitionBar(float progress) {
 		if(progress >= 1.0f) {
 			//If we got to the end, cut. This will reset the transition
-			cut();
-		} else if (progress >= 0.0f && selectedTransition) {
-			//Ensure the transition is in program
-			setTransitionSlot(MixEffect::OutputBus::PROGRAM);
-
+			cut(); //Will call setTransitionBar(0.0f)
+		} else if(selectedTransition) {
 			//Pause if a autotransition was taking place
 			selectedTransition->pause();
 
-			//Advance the transition upto the point
-			selectedTransition->setProgress(progress);
-			
-			//Configure the layers if necessary
-			if(!isTransitionEnabled()) {
-				configureLayers(true);
+			//Configure the selected transition and layers accordingly
+			if(progress > 0) {
+				//Advance the transition upto the point
+				selectedTransition->setProgress(progress);
+
+				//Configure the layers if necessary
+				if(!isTransitionConfigured()) {
+					configureLayers(true);
+				}
+			} else {
+				//Rewind to the beggining
+				selectedTransition->setTime(TimePoint());
+
+				//Ensure that the layers are configured without a transition in place
+				if(isTransitionConfigured()) {
+					configureLayers(false);
+				}
 			}
-		} 
+		}
 	}
 
 	float getTransitionBar() const noexcept {
@@ -473,7 +463,7 @@ struct MixEffectImpl {
 			transitionSlot = bus;
 
 			//Reconfigure the layers if necessary
-			if(isTransitionEnabled()) {
+			if(isTransitionConfigured()) {
 				configureLayers(true);
 			}
 		}
@@ -484,7 +474,7 @@ struct MixEffectImpl {
 	}
 
 
-	void addTransition(std::unique_ptr<TransitionBase> transition) {
+	void addTransition(std::unique_ptr<Transitions::Base> transition) {
 		auto& mixEffect = owner.get();
 
 		if(transition) {
@@ -501,15 +491,15 @@ struct MixEffectImpl {
 			transition->setSize(referenceCompositor.getViewportSize());
 
 			//Route the intermediate compositions to the transition
-			transition->getPrevIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::PROGRAM)];
-			transition->getPostIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::PREVIEW)];
+			transition->getPrevIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::program)];
+			transition->getPostIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::preview)];
 
 			transitions.emplace(transition->getName(), std::move(transition));
 		}
 	}
 
-	std::unique_ptr<TransitionBase> removeTransition(std::string_view name) {
-		std::unique_ptr<TransitionBase> result;
+	std::unique_ptr<Transitions::Base> removeTransition(std::string_view name) {
+		std::unique_ptr<Transitions::Base> result;
 
 		//Find the element to be deleted
 		const auto ite = transitions.find(name);
@@ -519,15 +509,35 @@ struct MixEffectImpl {
 			transitions.erase(ite);
 		}
 
+		//If it is selected, unselect it
+		if(getSelectedTransition() == result.get()) {
+			setSelectedTransition("");
+		}
+
 		return result;		
 	}
 
-	TransitionBase* getTransition(std::string_view name) const {
+	std::vector<Transitions::Base*> getTransitions() const {
+		std::vector<Transitions::Base*> result;
+		result.reserve(transitions.size());
+
+		std::transform(
+			transitions.cbegin(), transitions.cend(),
+			std::back_inserter(result),
+			[] (const TransitionMap::value_type& transition) -> Transitions::Base* {
+				return transition.second.get();
+			}
+		);
+
+		return result;
+	}
+
+	Transitions::Base* getTransition(std::string_view name) const {
 		const auto ite = transitions.find(name);
 		return ite != transitions.cend() ? ite->second.get() : nullptr;
 	}
 
-	void selectTransition(std::string_view name) {
+	void setSelectedTransition(std::string_view name) {
 		//Ensure the previous transition is not playing
 		if(selectedTransition) {
 			selectedTransition->stop();
@@ -537,12 +547,12 @@ struct MixEffectImpl {
 		selectedTransition = getTransition(name);
 
 		//If transition is enabled, configure the new one
-		if(isTransitionEnabled()) {
+		if(isTransitionConfigured()) {
 			configureLayers(true);
 		}
 	}
 
-	TransitionBase* getSelectedTransition() const noexcept {
+	Transitions::Base* getSelectedTransition() const noexcept {
 		return selectedTransition;
 	}
 
@@ -550,13 +560,13 @@ struct MixEffectImpl {
 
 	void setOverlayCount(MixEffect::OverlaySlot slot, size_t count) {
 		constexpr std::array<const char*, OVERLAY_CNT> SLOT_NAMES = {
-			"USK",
-			"DSK"
+			"USK ", //Mind the space at the end
+			"DSK "
 		};
 
 		const auto& me = owner.get();
 		auto& selection = overlays.at(static_cast<size_t>(slot));
-		const auto selectionName = SLOT_NAMES.at(static_cast<size_t>(slot));
+		const auto namePrefix = SLOT_NAMES.at(static_cast<size_t>(slot));
 
 		//Take the appropiate action to resize. Note that only one of the following
 		//statements will have effect (neither of them if count == size)
@@ -567,7 +577,7 @@ struct MixEffectImpl {
 			selection.emplace_back(
 				Utils::makeUnique<Keyer>(
 					me.getInstance(),
-					me.getName() + " - " + selectionName + " " + toString(selection.size()),
+					std::string(namePrefix) + toString(selection.size()),
 					referenceCompositor.getViewportSize()
 				)
 			);
@@ -598,7 +608,7 @@ struct MixEffectImpl {
 
 	void setOverlayVisible(MixEffect::OverlaySlot slot, size_t idx, bool visible) {
 		findOverlay(slot, idx).setVisible(visible);
-		configureLayers(isTransitionEnabled());
+		configureLayers(isTransitionConfigured());
 	}
 
 	bool getOverlayVisible(MixEffect::OverlaySlot slot, size_t idx) const {
@@ -607,20 +617,67 @@ struct MixEffectImpl {
 
 	void setOverlayTransition(MixEffect::OverlaySlot slot, size_t idx, bool transition) {
 		findOverlay(slot, idx).setTransition(transition);
-		configureLayers(isTransitionEnabled());
+		configureLayers(isTransitionConfigured());
 	}
 
 	bool getOverlayTransition(MixEffect::OverlaySlot slot, size_t idx) const {
 		return findOverlay(slot, idx).getTransition();
 	}
 
+	void setOverlaySignal(MixEffect::OverlaySlot slot, size_t overlay, std::string_view port, size_t idx) {
+		setSource(Signal::getInput<Video>(getOverlay(slot, overlay), port), idx);
+	}
+
+	size_t getOverlaySignal(MixEffect::OverlaySlot slot, size_t overlay, std::string_view port) const noexcept {
+		return getSource(Signal::getInput<Video>(getOverlay(slot, overlay), port));
+	}
+
+
 private:
+	void setSource(Signal::PadProxy<Signal::Input<Video>>& pad, size_t idx) {
+		if(idx < inputs.size()) {
+			pad << inputs.at(idx);
+		} else {
+			pad << Signal::noSignal;
+		}
+	}
+
+	size_t getSource(const Signal::PadProxy<Signal::Input<Video>>& pad) const noexcept {
+		size_t result = MixEffect::NO_SIGNAL;
+
+		const auto source = pad.getSource();
+		if(source) {
+			//Find the source among the inputs. This could be done
+			//with some ptr trickery in O(1) time, however, it would
+			//be ugly. Hope the compiler does it
+			const auto ite = std::find_if(
+				inputs.cbegin(), inputs.cend(),
+				[source] (const Input& input) {
+					return &input.getOutput() == source;
+				}
+			);
+
+			//The input should be valid
+			assert(ite != inputs.cend());
+
+			result = std::distance(inputs.cbegin(), ite);
+		}
+
+		return result;
+	}
+
+
 	Overlay& findOverlay(MixEffect::OverlaySlot slot, size_t idx) {
 		return overlays.at(static_cast<size_t>(slot)).at(idx);
 	}
 
 	const Overlay& findOverlay(MixEffect::OverlaySlot slot, size_t idx) const {
 		return overlays.at(static_cast<size_t>(slot)).at(idx);
+	}
+	
+
+	bool isTransitionConfigured() const noexcept {
+		return intermediateLayer.getInput().getSource() != nullptr;
 	}
 
 	void configureLayers(bool useTransition) {
@@ -634,7 +691,7 @@ private:
 				//Obtain the upsetream layers
 				layers = { backgroundLayers[i] };
 
-				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::UPSTREAM)]) {
+				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::upstream)]) {
 					if(overlay.getVisible(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
@@ -654,7 +711,7 @@ private:
 					intermediateLayer << intermediateCompositors[i];
 				}
 
-				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::DOWNSTREAM)]) {
+				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::downstream)]) {
 					if(overlay.getVisible(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
@@ -688,6 +745,7 @@ private:
 		}
 	}
 
+
 	void viewportSizeCallback(Math::Vec2f size) {
 		for(auto& bkgdLayer : backgroundLayers) {
 			bkgdLayer.setSize(size);
@@ -701,11 +759,6 @@ private:
 		}
 	}
 
-	bool isTransitionEnabled() const noexcept {
-		return intermediateLayer.getInput().getSource() != nullptr;
-	}
-
-
 
 	static VideoSurface createBackgroundLayer(	Instance& instance, 
 												std::string name,
@@ -718,8 +771,8 @@ private:
 		);
 		
 		//Configure it
-		result.setBlendingMode(BlendingMode::WRITE);
-		result.setRenderingLayer(RenderingLayer::BACKGROUND);
+		result.setBlendingMode(BlendingMode::write);
+		result.setRenderingLayer(RenderingLayer::background);
 
 		return result;
 	}
@@ -734,8 +787,8 @@ private:
 
 MixEffect::MixEffect(	Zuazo::Instance& instance,
 						std::string name )
-	: Zuazo::Utils::Pimpl<MixEffectImpl>({}, *this, instance, name)
-	, Zuazo::ZuazoBase(
+	: Utils::Pimpl<MixEffectImpl>({}, *this, instance, name)
+	, ZuazoBase(
 		instance,
 		std::move(name),
 		{},
@@ -745,12 +798,16 @@ MixEffect::MixEffect(	Zuazo::Instance& instance,
 		std::bind(&MixEffectImpl::close, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&MixEffectImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&MixEffectImpl::update, std::ref(**this)) )
-	, Zuazo::VideoBase(
-		std::bind(&MixEffectImpl::videoModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
+	, VideoBase(
+		std::bind(&MixEffectImpl::setVideoMode, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
+	, VideoScalerBase(
+		std::bind(&MixEffectImpl::setScalingMode, std::ref(**this), std::placeholders::_2),
+		std::bind(&MixEffectImpl::setScalingFilter, std::ref(**this), std::placeholders::_2)
+	)
 {
 	//Register output pads
-	registerPad(getProgramOutput());
-	registerPad(getPreviewOutput());
+	registerPad(getOutput(OutputBus::program));
+	registerPad(getOutput(OutputBus::preview));
 
 	//Set compatibility to a known state
 	setVideoModeCompatibility((*this)->getVideoModeCompatibility());
@@ -761,6 +818,11 @@ MixEffect::MixEffect(	Zuazo::Instance& instance,
 	(*this)->referenceCompositor.setVideoModeNegotiationCallback(
 		std::bind(&MixEffectImpl::videoModeNegotiationCallback, this->get(), std::placeholders::_2)
 	);
+
+	//Add the default transitions
+	addTransition(Utils::makeUnique<Transitions::Mix>(instance, "Mix"));
+	addTransition(Utils::makeUnique<Transitions::DVE>(instance, "DVE"));
+	setSelectedTransition("Mix");
 }
 
 MixEffect::MixEffect(MixEffect&& other) = default;
@@ -796,21 +858,6 @@ const MixEffect::Output& MixEffect::getOutput(OutputBus bus) const {
 	return (*this)->getOutput(bus);
 }
 
-MixEffect::Output& MixEffect::getProgramOutput() noexcept {
-	return getOutput(OutputBus::PROGRAM);
-}
-
-const MixEffect::Output& MixEffect::getProgramOutput() const noexcept {
-	return getOutput(OutputBus::PROGRAM);
-}
-
-MixEffect::Output& MixEffect::getPreviewOutput() noexcept {
-	return getOutput(OutputBus::PREVIEW);
-}
-
-const MixEffect::Output& MixEffect::getPreviewOutput() const noexcept {
-	return getOutput(OutputBus::PREVIEW);
-}
 
 
 void MixEffect::setBackground(OutputBus bus, size_t idx) {
@@ -819,22 +866,6 @@ void MixEffect::setBackground(OutputBus bus, size_t idx) {
 
 size_t MixEffect::getBackground(OutputBus bus) const noexcept {
 	return (*this)->getBackground(bus);
-}
-
-void MixEffect::setProgram(size_t idx) {
-	setBackground(OutputBus::PROGRAM, idx);
-}
-
-size_t MixEffect::getProgram() const noexcept {
-	return getBackground(OutputBus::PROGRAM);
-}
-
-void MixEffect::setPreview(size_t idx) {
-	setBackground(OutputBus::PREVIEW, idx);
-}
-
-size_t MixEffect::getPreview() const noexcept {
-	return getBackground(OutputBus::PREVIEW);
 }
 
 
@@ -867,33 +898,42 @@ MixEffect::OutputBus MixEffect::getTransitionSlot() const noexcept {
 
 
 
-void MixEffect::addTransition(std::unique_ptr<TransitionBase> transition) {
+void MixEffect::addTransition(std::unique_ptr<Transitions::Base> transition) {
 	(*this)->addTransition(std::move(transition));
 }
 
-std::unique_ptr<TransitionBase> MixEffect::removeTransition(std::string_view name) {
+std::unique_ptr<Transitions::Base> MixEffect::removeTransition(std::string_view name) {
 	return (*this)->removeTransition(name);
 }
 
-TransitionBase* MixEffect::getTransition(std::string_view name) {
+std::vector<Transitions::Base*> MixEffect::getTransitions() {
+	return (*this)->getTransitions();
+}
+
+std::vector<const Transitions::Base*> MixEffect::getTransitions() const {
+	return reinterpret_cast<std::vector<const Transitions::Base*>&&>((*this)->getTransitions()); //HACK
+}
+
+Transitions::Base* MixEffect::getTransition(std::string_view name) {
 	return (*this)->getTransition(name);
 }
 
-const TransitionBase* MixEffect::getTransition(std::string_view name) const {
+const Transitions::Base* MixEffect::getTransition(std::string_view name) const {
 	return (*this)->getTransition(name);
 }
 
-void MixEffect::selectTransition(std::string_view name) {
-	(*this)->selectTransition(name);
+void MixEffect::setSelectedTransition(std::string_view name) {
+	(*this)->setSelectedTransition(name);
 }	
 
-TransitionBase* MixEffect::getSelectedTransition() noexcept {
+Transitions::Base* MixEffect::getSelectedTransition() noexcept {
 	return (*this)->getSelectedTransition();
 }
 
-const TransitionBase* MixEffect::getSelectedTransition() const noexcept {
+const Transitions::Base* MixEffect::getSelectedTransition() const noexcept {
 	return (*this)->getSelectedTransition();
 }
+
 
 
 void MixEffect::setOverlayCount(OverlaySlot slot, size_t count) {
@@ -904,23 +944,6 @@ size_t MixEffect::getOverlayCount(OverlaySlot slot) const {
 	return (*this)->getOverlayCount(slot);
 }
 
-void MixEffect::setUpstreamOverlayCount(size_t count) {
-	setOverlayCount(OverlaySlot::UPSTREAM, count);
-}
-
-size_t MixEffect::getUpstreamOverlayCount() const {
-	return getOverlayCount(OverlaySlot::UPSTREAM);
-}
-
-void MixEffect::setDownstreamOverlayCount(size_t count) {
-	setOverlayCount(OverlaySlot::DOWNSTREAM, count);
-}
-
-size_t MixEffect::getDownstreamOverlayCount() const {
-	return getOverlayCount(OverlaySlot::DOWNSTREAM);
-}
-
-
 Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) {
 	return (*this)->getOverlay(slot, idx);
 }
@@ -929,70 +952,28 @@ const Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) const {
 	return (*this)->getOverlay(slot, idx);
 }
 
-Keyer& MixEffect::getUpstreamOverlay(size_t idx) {
-	return getOverlay(OverlaySlot::UPSTREAM, idx);
-}
-
-const Keyer& MixEffect::getUpstreamOverlay(size_t idx) const {
-	return getOverlay(OverlaySlot::UPSTREAM, idx);
-}
-
-Keyer& MixEffect::getDownstreamOverlay(size_t idx) {
-	return getOverlay(OverlaySlot::DOWNSTREAM, idx);
-}
-
-const Keyer& MixEffect::getDownstreamOverlay(size_t idx) const {
-	return getOverlay(OverlaySlot::DOWNSTREAM, idx);
-}
-
-
 void MixEffect::setOverlayVisible(OverlaySlot slot, size_t idx, bool visible) {
-	return (*this)->setOverlayVisible(slot, idx, visible);
+	(*this)->setOverlayVisible(slot, idx, visible);
 }
 
 bool MixEffect::getOverlayVisible(OverlaySlot slot, size_t idx) const {
 	return (*this)->getOverlayVisible(slot, idx);
 }
 
-void MixEffect::setUpstreamOverlayVisible(size_t idx, bool visible) {
-	setOverlayVisible(OverlaySlot::UPSTREAM, idx, visible);
-}
-
-bool MixEffect::getUpstreamOverlayVisible(size_t idx) const {
-	return getOverlayVisible(OverlaySlot::UPSTREAM, idx);
-}
-
-void MixEffect::setDownstreamOverlayVisible(size_t idx, bool visible) {
-	setOverlayVisible(OverlaySlot::DOWNSTREAM, idx, visible);
-}
-
-bool MixEffect::getDownstreamOverlayVisible(size_t idx) const {
-	return getOverlayVisible(OverlaySlot::DOWNSTREAM, idx);
-}
-
-
 void MixEffect::setOverlayTransition(OverlaySlot slot, size_t idx, bool transition) {
-	return (*this)->setOverlayTransition(slot, idx, transition);
+	(*this)->setOverlayTransition(slot, idx, transition);
 }
 
 bool MixEffect::getOverlayTransition(OverlaySlot slot, size_t idx) const {
 	return (*this)->getOverlayTransition(slot, idx);
 }
 
-void MixEffect::setUpstreamOverlayTransition(size_t idx, bool transition) {
-	setOverlayTransition(OverlaySlot::UPSTREAM, idx, transition);
+void MixEffect::setOverlaySignal(OverlaySlot slot, size_t overlay, std::string_view port, size_t idx) {
+	(*this)->setOverlaySignal(slot, overlay, port, idx);
 }
 
-bool MixEffect::getUpstreamOverlayTransition(size_t idx) const {
-	return getOverlayTransition(OverlaySlot::UPSTREAM, idx);
-}
-
-void MixEffect::setDownstreamOverlayTransition(size_t idx, bool transition) {
-	setOverlayTransition(OverlaySlot::DOWNSTREAM, idx, transition);
-}
-
-bool MixEffect::getDownstreamOverlayTransition(size_t idx) const {
-	return getOverlayTransition(OverlaySlot::DOWNSTREAM, idx);
+size_t MixEffect::getOverlaySignal(OverlaySlot slot, size_t overlay, std::string_view port) const noexcept {
+	return (*this)->getOverlaySignal(slot, overlay, port);
 }
 
 }

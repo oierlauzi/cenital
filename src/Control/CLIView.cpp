@@ -121,7 +121,7 @@ static void serialize(const std::vector<std::string>& tokens, std::string& msg) 
 CLIView::CLIView(Controller& controller) 
 	: ViewBase(controller)
 	, m_listeners()
-	, m_request(Message::Type::REQUEST)
+	, m_request(Message::Type::request)
 	, m_response()
 	, m_update()
 {
@@ -133,7 +133,7 @@ void CLIView::addListener(Listener ls) {
 
 void CLIView::parse(std::string_view msg, std::string& ret) {
 	//Elaborate the request
-	assert(m_request.getType() == Message::Type::REQUEST); //Should not be changed
+	assert(m_request.getType() == Message::Type::request); //Should not be changed
 	auto& reqTokens = m_request.getPayload();
 	tokenize(msg, reqTokens);
 
@@ -145,7 +145,7 @@ void CLIView::parse(std::string_view msg, std::string& ret) {
 	}
 
 	//Clear the response
-	m_response.setType(Message::Type::ERROR);
+	m_response.setType(Message::Type::error);
 	auto& resTokens = m_response.getPayload();
 	resTokens.clear();
 
@@ -153,7 +153,7 @@ void CLIView::parse(std::string_view msg, std::string& ret) {
 	action(m_request, m_response);
 
 	//Add success token at the front
-	std::string success = 	m_response.getType() == Message::Type::RESPONSE ?
+	std::string success = 	m_response.getType() == Message::Type::response ?
 							"OK" :
 							"FAIL";
 	resTokens.insert(resTokens.cbegin(), std::move(success));
@@ -168,7 +168,7 @@ void CLIView::parse(std::string_view msg, std::string& ret) {
 }
 
 void CLIView::update(const Message& msg) {
-	assert(msg.getType() == Message::Type::BROADCAST);
+	assert(msg.getType() == Message::Type::broadcast);
 	serialize(msg.getPayload(), m_update);
 
 	//Transmit the update to all the listeners

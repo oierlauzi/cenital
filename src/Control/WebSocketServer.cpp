@@ -9,6 +9,9 @@ WebSocketServer::WebSocketServer(	boost::asio::io_service& ios,
 									MessageCallback msgCbk )
 	: m_socket()
 {	
+	//Set verbosity to silent
+	m_socket.clear_access_channels(websocketpp::log::alevel::all); 
+
 	//Initialize Asio
 	m_socket.init_asio(&ios);
 
@@ -18,7 +21,7 @@ WebSocketServer::WebSocketServer(	boost::asio::io_service& ios,
 	m_socket.set_message_handler(std::move(msgCbk));
 
 	//Configure the port
-	m_socket.listen(port);			
+	m_socket.listen(port);		
 }
 
 

@@ -1,6 +1,6 @@
 #include "Generic.h"
 
-#include "../StringConversions.h"
+#include <zuazo/StringConversions.h>
 
 #include <functional>
 
@@ -29,7 +29,7 @@ inline bool parse(	Zuazo::Utils::BufferView<const std::string> tokens,
 		//Try to parse the first argument if the
 		//previous step succeeded
 		if(result) {
-			result = fromString(tokens[0], first);
+			result = Zuazo::fromString(tokens[0], first);
 		}
 	}
 
@@ -65,7 +65,7 @@ inline void invokeSetter(	F&& func,
 	);
 
 	//Try to parse the tokens
-	std::tuple<Args...> args;
+	std::tuple<typename std::decay<Args>::type...> args;
 	if(parse(tokens, args)) {
 		assert(typeid(base) == typeid(T));
 		T& element = static_cast<T&>(base);
@@ -75,7 +75,7 @@ inline void invokeSetter(	F&& func,
 			std::forward<F>(func),
 			std::tuple_cat(std::forward_as_tuple(element), std::move(args))
 		);
-		response.setType(Message::Type::BROADCAST);
+		response.setType(Message::Type::broadcast);
 		response.getPayload() = request.getPayload();
 	}
 }
@@ -119,7 +119,7 @@ inline void invokeGetter(	F&& func,
 	);
 
 	//Try to parse the tokens
-	std::tuple<Args...> args;
+	std::tuple<typename std::decay<Args>::type...> args;
 	if(parse(tokens, args)) {
 		assert(typeid(base) == typeid(T));
 		T& element = static_cast<T&>(base);
@@ -129,8 +129,8 @@ inline void invokeGetter(	F&& func,
 			std::forward<F>(func),
 			std::tuple_cat(std::forward_as_tuple(element), std::move(args))
 		);
-		response.setType(Message::Type::RESPONSE);
-		response.getPayload() = { std::string(toString(ret)) };
+		response.setType(Message::Type::response);
+		response.getPayload() = { std::string(Zuazo::toString(ret)) };
 	}
 }
 
@@ -176,6 +176,31 @@ invokeBaseConstructor(	Zuazo::Instance& instance,
 
 
 	return result;
+}
+
+
+template<typename T>
+inline void enumerate(	Zuazo::ZuazoBase&, 
+						const Message& request,
+						size_t level,
+						Message& response )
+{
+	using EnumTraits = Zuazo::Utils::EnumTraits<T>;
+	const auto& tokens = request.getPayload();
+
+	if(tokens.size() == level) {
+		response.setType(Message::Type::response);
+		
+		auto& payload = response.getPayload();
+		payload.clear();
+
+		const auto first = EnumTraits::first();
+		const auto last = EnumTraits::last();
+		payload.reserve(static_cast<size_t>(last) - static_cast<size_t>(first) + 1);
+		for(auto i = first; i <= last; ++i) {
+			payload.emplace_back(Zuazo::toString(i));
+		}
+	}
 }
 
 

@@ -1,7 +1,7 @@
 #include "Mixer.h"
 
 #include "MixEffect.h"
-#include "Sources/MediaPlayer.h"
+//#include "Sources/MediaPlayer.h"
 
 #include "Control/Controller.h"
 #include "Control/CLIView.h"
@@ -31,7 +31,7 @@ static void registerCommands(Control::Controller& controller) {
 	//Register the commands we know ahead of time
 	Mixer::registerCommands(root);
 	MixEffect::registerCommands(root);
-	Sources::MediaPlayer::registerCommands(root);
+	//Sources::MediaPlayer::registerCommands(root);
 }
 
 
@@ -175,8 +175,8 @@ int main(int argc, const char* const* argv) {
 
 	//Instantiate the Zuazo library
 	const auto verbosity = 	verboseArg.getValue() ? 
-							Zuazo::Verbosity::GEQ_VERBOSE : 
-							Zuazo::Verbosity::GEQ_ERROR ;
+							Zuazo::Verbosity::geqVerbose : 
+							Zuazo::Verbosity::geqError ;
 
 	Zuazo::Instance::ApplicationInfo::Modules modules {
 		Zuazo::Modules::Window::get(),

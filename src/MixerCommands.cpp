@@ -11,10 +11,10 @@ namespace Cenital {
 
 using namespace Zuazo;
 
-static void removeElement(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
-							size_t level,
-							Control::Message& response ) 
+static void rmElement(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -24,16 +24,16 @@ static void removeElement(	Zuazo::ZuazoBase& base,
 
 		const auto ret = mixer.eraseElement(tokens[level]);
 		if(ret) {
-			response.setType(Control::Message::Type::BROADCAST);
+			response.setType(Control::Message::Type::broadcast);
 			response.getPayload() = request.getPayload();
 		}
 	}
 }
 
-static void listElements(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
-							size_t level,
-							Control::Message& response ) 
+static void lsElements(	Zuazo::ZuazoBase& base, 
+						const Control::Message& request,
+						size_t level,
+						Control::Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -54,76 +54,16 @@ static void listElements(	Zuazo::ZuazoBase& base,
 			}
 		);
 
-		response.setType(Control::Message::Type::RESPONSE);
+		response.setType(Control::Message::Type::response);
 	}
 }
 
-static void listInputs(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
-						size_t level,
-						Control::Message& response ) 
-{
-	const auto& tokens = request.getPayload();
 
-	if(tokens.size() == (level + 1)) {
-		assert(typeid(base) == typeid(Mixer));
-		const auto& mixer = static_cast<const Mixer&>(base);
 
-		const auto* element = mixer.getElement(tokens[level]);
-		if(element) {
-			const auto pads = element->getPads<Signal::Input<Video>>();
-
-			std::vector<std::string>& payload = response.getPayload();
-			payload.clear();
-			payload.reserve(pads.size());
-			std::transform(
-				pads.cbegin(), pads.cend(),
-				std::back_inserter(payload),
-				[] (const Signal::PadProxy<Signal::Input<Video>>& el) -> std::string {
-					return el.getName();
-				}
-			);
-
-			response.setType(Control::Message::Type::RESPONSE);
-		}
-	}
-}
-
-static void listOutputs(Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
-						size_t level,
-						Control::Message& response ) 
-{
-	const auto& tokens = request.getPayload();
-
-	if(tokens.size() == (level + 1)) {
-		assert(typeid(base) == typeid(Mixer));
-		const auto& mixer = static_cast<const Mixer&>(base);
-
-		const auto* element = mixer.getElement(tokens[level]);
-		if(element) {
-			const auto pads = element->getPads<Signal::Output<Video>>();
-
-			std::vector<std::string>& payload = response.getPayload();
-			payload.clear();
-			payload.reserve(pads.size());
-			std::transform(
-				pads.cbegin(), pads.cend(),
-				std::back_inserter(payload),
-				[] (const Signal::PadProxy<Signal::Output<Video>>& el) -> std::string {
-					return el.getName();
-				}
-			);
-
-			response.setType(Control::Message::Type::RESPONSE);
-		}
-	}
-}
-
-static void connect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
-						size_t level,
-						Control::Message& response ) 
+static void setConnection(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -140,38 +80,15 @@ static void connect(	Zuazo::ZuazoBase& base,
 
 		if(ret) {
 			response.getPayload() = request.getPayload();
-			response.setType(Control::Message::Type::BROADCAST);
+			response.setType(Control::Message::Type::broadcast);
 		}
 	}
 }
 
-static void disconnect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
-						size_t level,
-						Control::Message& response ) 
-{
-	const auto& tokens = request.getPayload();
-
-	if(tokens.size() == (level + 2)) {
-		//Some aliases
-		assert(typeid(base) == typeid(Mixer));
-		auto& mixer = static_cast<Mixer&>(base);
-		const auto& dstName = tokens[level + 0];
-		const auto& dstPort = tokens[level + 1];
-
-		const auto ret = mixer.disconnect(dstName, dstPort);
-
-		if(ret) {
-			response.getPayload() = request.getPayload();
-			response.setType(Control::Message::Type::BROADCAST);
-		}
-	}
-}
-
-static void getSource(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
-						size_t level,
-						Control::Message& response ) 
+static void getConnection(	Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -200,37 +117,128 @@ static void getSource(	Zuazo::ZuazoBase& base,
 					};
 				}
 
-				response.setType(Control::Message::Type::RESPONSE);
+				response.setType(Control::Message::Type::response);
 			}	
 
 		}
 	}
 }
 
+static void unsetConnection(Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
+
+	if(tokens.size() == (level + 2)) {
+		//Some aliases
+		assert(typeid(base) == typeid(Mixer));
+		auto& mixer = static_cast<Mixer&>(base);
+		const auto& dstName = tokens[level + 0];
+		const auto& dstPort = tokens[level + 1];
+
+		const auto ret = mixer.disconnect(dstName, dstPort);
+
+		if(ret) {
+			response.getPayload() = request.getPayload();
+			response.setType(Control::Message::Type::broadcast);
+		}
+	}
+}
+
+
+
+static void lsConnectionDst(Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
+
+	if(tokens.size() == (level + 1)) {
+		assert(typeid(base) == typeid(Mixer));
+		const auto& mixer = static_cast<const Mixer&>(base);
+
+		const auto* element = mixer.getElement(tokens[level]);
+		if(element) {
+			const auto pads = element->getPads<Signal::Input<Video>>();
+
+			std::vector<std::string>& payload = response.getPayload();
+			payload.clear();
+			payload.reserve(pads.size());
+			std::transform(
+				pads.cbegin(), pads.cend(),
+				std::back_inserter(payload),
+				[] (const Signal::PadProxy<Signal::Input<Video>>& el) -> std::string {
+					return el.getName();
+				}
+			);
+
+			response.setType(Control::Message::Type::response);
+		}
+	}
+}
+
+static void lsConnectionSrc(Zuazo::ZuazoBase& base, 
+							const Control::Message& request,
+							size_t level,
+							Control::Message& response ) 
+{
+	const auto& tokens = request.getPayload();
+
+	if(tokens.size() == (level + 1)) {
+		assert(typeid(base) == typeid(Mixer));
+		const auto& mixer = static_cast<const Mixer&>(base);
+
+		const auto* element = mixer.getElement(tokens[level]);
+		if(element) {
+			const auto pads = element->getPads<Signal::Output<Video>>();
+
+			std::vector<std::string>& payload = response.getPayload();
+			payload.clear();
+			payload.reserve(pads.size());
+			std::transform(
+				pads.cbegin(), pads.cend(),
+				std::back_inserter(payload),
+				[] (const Signal::PadProxy<Signal::Output<Video>>& el) -> std::string {
+					return el.getName();
+				}
+			);
+
+			response.setType(Control::Message::Type::response);
+		}
+	}
+}
+
+
+
+
+
 void Mixer::registerCommands(Control::Node& node) {
 	auto elementNode = Control::makeCollectionNode(
 		{}, 					//Add
-		Cenital::removeElement,	//Remove
-		Cenital::listElements	//Ls
+		Cenital::rmElement,		//Remove
+		Cenital::lsElements		//Ls
 	);
 
 	auto connectionNode = Control::makeAttributeNode(
-		Cenital::connect,	//Set
-		Cenital::getSource,	//Get
-		{},					//Enum
-		Cenital::disconnect	//Unset
+		Cenital::setConnection,	//Set
+		Cenital::getConnection,	//Get
+		{},						//Enum
+		Cenital::unsetConnection//Unset
 	);
 
 	auto dstNode = Control::makeCollectionNode(
-		{}, 				//Add
-		{}, 				//Remove
-		Cenital::listInputs	//Ls
+		{}, 					//Add
+		{}, 					//Remove
+		Cenital::lsConnectionDst//Ls
 	);
 	
 	auto srcNode = Control::makeCollectionNode(
-		{}, 				//Add
-		{}, 				//Remove
-		Cenital::listOutputs//Ls
+		{}, 					//Add
+		{}, 					//Remove
+		Cenital::lsConnectionSrc//Ls
 	);
 
 	node.addPath("element",			std::move(elementNode));

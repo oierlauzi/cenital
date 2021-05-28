@@ -80,7 +80,7 @@ void MixerNode::help(	Zuazo::ZuazoBase&,
 	const auto& tokens = request.getPayload();
 
 	if(level == tokens.size()) {
-		response.setType(Message::Type::RESPONSE);
+		response.setType(Message::Type::response);
 		response.getPayload() = { "help", "ping", "add", "rm", "aim", "ls" };
 	}	
 }
@@ -108,7 +108,7 @@ void MixerNode::add(ZuazoBase& base,
 
 		if(ret) {
 			//Successfully added
-			response.setType(Message::Type::BROADCAST);
+			response.setType(Message::Type::broadcast);
 			response.getPayload() = tokens;
 		}
 	}
@@ -131,7 +131,7 @@ void MixerNode::rm(	ZuazoBase& base,
 		if(element) {
 			if(std::type_index(typeid(*element)) == getElementType()) {
 				//Success
-				response.setType(Message::Type::BROADCAST);
+				response.setType(Message::Type::broadcast);
 				response.getPayload() = tokens;
 			} else {
 				//Element type is not coherent. Insert it back
@@ -189,7 +189,7 @@ void MixerNode::ls(	ZuazoBase& base,
 			}
 		);
 
-		response.setType(Message::Type::RESPONSE);
+		response.setType(Message::Type::response);
 		response.getPayload() = std::move(payload);
 	}	
 }

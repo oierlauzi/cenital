@@ -1,18 +1,18 @@
-#include <MixTransition.h>
+#include <Transitions/Mix.h>
 
 #include <zuazo/Signal/DummyPad.h>
 #include <zuazo/Math/Trigonometry.h>
 #include <zuazo/Layers/VideoSurface.h>
 
-namespace Cenital {
+namespace Cenital::Transitions {
 
 using namespace Zuazo;
 
-struct MixTransitionImpl {
+struct MixImpl {
 	using Input = Signal::DummyPad<Zuazo::Video>;
 	using VideoSurface = Layers::VideoSurface;
 
-	std::reference_wrapper<MixTransition>	owner;
+	std::reference_wrapper<Mix>	owner;
 
 	Input									prevIn;
 	Input									postIn;
@@ -22,33 +22,33 @@ struct MixTransitionImpl {
 
 	std::array<RendererBase::LayerRef, 2>	layerReferences;
 
-	MixTransition::Effect					effect;
+	Mix::Effect								effect;
 	
 
-	MixTransitionImpl(MixTransition& owner, Instance& instance)
+	MixImpl(Mix& owner, Instance& instance)
 		: owner(owner)
 		, prevIn(owner, "prevIn")
 		, postIn(owner, "postIn")
 		, prevSurface(instance, "prevSurface", Math::Vec2f())
 		, postSurface(instance, "postSurface", Math::Vec2f())
 		, layerReferences{ postSurface, prevSurface }
-		, effect(MixTransition::Effect::MIX)
+		, effect(Mix::Effect::mix)
 	{
 		//Route the signals permanently
 		prevSurface << prevIn;
 		postSurface << postIn;
 
 		//Configure the permanent parameters of the surfaces
-		prevSurface.setScalingMode(ScalingMode::STRETCH); //defaults
-		postSurface.setScalingMode(ScalingMode::STRETCH); //defaults
-		prevSurface.setRenderingLayer(RenderingLayer::BACKGROUND); //Not the default value
-		postSurface.setRenderingLayer(RenderingLayer::BACKGROUND); //Not the default value
+		prevSurface.setScalingMode(ScalingMode::stretch); //defaults
+		postSurface.setScalingMode(ScalingMode::stretch); //defaults
+		prevSurface.setRenderingLayer(RenderingLayer::background); //Not the default value
+		postSurface.setRenderingLayer(RenderingLayer::background); //Not the default value
 	}
 
-	~MixTransitionImpl() = default;
+	~MixImpl() = default;
 
 	void moved(ZuazoBase& base) {
-		owner = static_cast<MixTransition&>(base);
+		owner = static_cast<Mix&>(base);
 		prevIn.setLayout(base);
 		postIn.setLayout(base);
 	}
@@ -94,15 +94,15 @@ struct MixTransitionImpl {
 
 		//Configure the layers
 		switch (effect) {
-		case MixTransition::Effect::MIX:
+		case Mix::Effect::mix:
 			configureMix(progress);
 			break;
 
-		case MixTransition::Effect::ADD:
+		case Mix::Effect::add:
 			configureAdd(progress);
 			break;
 
-		case MixTransition::Effect::BLACK:
+		case Mix::Effect::fade:
 			configureBlack(progress);
 			break;
 
@@ -111,7 +111,7 @@ struct MixTransitionImpl {
 		}
 	}
 
-	void sizeCallback(TransitionBase&, Math::Vec2f size) {
+	void sizeCallback(Base&, Math::Vec2f size) {
 		prevSurface.setSize(size);
 		postSurface.setSize(size);
 		updateCallback();
@@ -132,12 +132,12 @@ struct MixTransitionImpl {
 
 
 
-	void setEffect(MixTransition::Effect effect) {
+	void setEffect(Mix::Effect effect) {
 		this->effect = effect;
 		updateCallback();
 	}
 
-	MixTransition::Effect getEffect() const noexcept {
+	Mix::Effect getEffect() const noexcept {
 		return effect;
 	}
 
@@ -145,22 +145,22 @@ private:
 	void configureMix(float progress) {
 		//Set complementary gains. As they are adding, this
 		//results in a mixing effect
-		prevSurface.setBlendingMode(BlendingMode::ADD);
-		postSurface.setBlendingMode(BlendingMode::ADD);
+		prevSurface.setBlendingMode(BlendingMode::add);
+		postSurface.setBlendingMode(BlendingMode::add);
 		prevSurface.setOpacity(1 - progress);
 		postSurface.setOpacity(0 + progress);
 	}
 
 	void configureAdd(float progress) {
-		prevSurface.setBlendingMode(BlendingMode::ADD);
-		postSurface.setBlendingMode(BlendingMode::ADD);
+		prevSurface.setBlendingMode(BlendingMode::add);
+		postSurface.setBlendingMode(BlendingMode::add);
 		prevSurface.setOpacity(Math::min(2*(1 - progress), 1.0f));
 		postSurface.setOpacity(Math::min(2*(0 + progress), 1.0f));
 	}
 
 	void configureBlack(float progress) {
-		prevSurface.setBlendingMode(BlendingMode::ADD);
-		postSurface.setBlendingMode(BlendingMode::ADD);
+		prevSurface.setBlendingMode(BlendingMode::add);
+		postSurface.setBlendingMode(BlendingMode::add);
 		prevSurface.setOpacity(Math::max(+1 - 2*progress, 0.0f));
 		postSurface.setOpacity(Math::max(-1 + 2*progress, 0.0f));
 	}
@@ -168,39 +168,39 @@ private:
 };
 
 
-MixTransition::MixTransition(	Instance& instance,
+Mix::Mix(	Instance& instance,
 								std::string name )
-	: Utils::Pimpl<MixTransitionImpl>({}, *this, instance)
-	, TransitionBase(
+	: Utils::Pimpl<MixImpl>({}, *this, instance)
+	, Base(
 		instance,
 		std::move(name),
 		(*this)->prevIn.getInput(),
 		(*this)->postIn.getInput(),
 		(*this)->layerReferences,
-		std::bind(&MixTransitionImpl::moved, std::ref(**this), std::placeholders::_1),
-		std::bind(&MixTransitionImpl::open, std::ref(**this), std::placeholders::_1),
-		std::bind(&MixTransitionImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		std::bind(&MixTransitionImpl::close, std::ref(**this), std::placeholders::_1),
-		std::bind(&MixTransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		std::bind(&MixTransitionImpl::updateCallback, std::ref(**this)),
-		std::bind(&MixTransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
+		std::bind(&MixImpl::moved, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixImpl::open, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&MixImpl::close, std::ref(**this), std::placeholders::_1),
+		std::bind(&MixImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&MixImpl::updateCallback, std::ref(**this)),
+		std::bind(&MixImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
 	//Leave it in a known state
 	(*this)->updateCallback();
 }
 
-MixTransition::MixTransition(MixTransition&& other) = default;
-MixTransition::~MixTransition() = default;
+Mix::Mix(Mix&& other) = default;
+Mix::~Mix() = default;
 
-MixTransition& MixTransition::operator=(MixTransition&& other) = default;
+Mix& Mix::operator=(Mix&& other) = default;
 
 
 
-void MixTransition::setEffect(Effect effect) {
+void Mix::setEffect(Effect effect) {
 	(*this)->setEffect(effect);
 }
 
-MixTransition::Effect MixTransition::getEffect() const noexcept {
+Mix::Effect Mix::getEffect() const noexcept {
 	return (*this)->getEffect();
 }
 

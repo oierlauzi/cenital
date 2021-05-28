@@ -10,35 +10,35 @@
 #include <utility>
 #include <functional>
 
-namespace Cenital {
+namespace Cenital::Transitions {
 
-class TransitionBase 
+class Base 
 	: public Zuazo::ZuazoBase
 	, public Zuazo::ClipBase
 {
 public:
 	using Input = Zuazo::Signal::PadProxy<Zuazo::Signal::Input<Zuazo::Video>>;
 	using Layers = Zuazo::Utils::BufferView<const Zuazo::RendererBase::LayerRef>;
-	using SizeCallback = std::function<void(TransitionBase&, Zuazo::Math::Vec2f)>;
+	using SizeCallback = std::function<void(Base&, Zuazo::Math::Vec2f)>;
 
-	TransitionBase(	Zuazo::Instance& instance, 
-					std::string name,
-					Input& prevIn,
-					Input& postIn,
-					Layers layers,
-					MoveCallback moveCbk = {},
-					OpenCallback openCbk = {},
-					AsyncOpenCallback asyncOpenCbk = {},
-					CloseCallback closeCbk = {},
-					AsyncCloseCallback asyncCloseCbk = {},
-					UpdateCallback updateCbk = {},
-					SizeCallback sizeCbk = {} );
-	TransitionBase(const TransitionBase& other) = default;
-	TransitionBase(TransitionBase&& other) = default;
-	~TransitionBase() = default;
+	Base(	Zuazo::Instance& instance, 
+			std::string name,
+			Input& prevIn,
+			Input& postIn,
+			Layers layers,
+			MoveCallback moveCbk = {},
+			OpenCallback openCbk = {},
+			AsyncOpenCallback asyncOpenCbk = {},
+			CloseCallback closeCbk = {},
+			AsyncCloseCallback asyncCloseCbk = {},
+			UpdateCallback updateCbk = {},
+			SizeCallback sizeCbk = {} );
+	Base(const Base& other) = default;
+	Base(Base&& other) = default;
+	~Base() = default;
 
-	TransitionBase&					operator=(const TransitionBase& other) = default;
-	TransitionBase&					operator=(TransitionBase&& other) = default;
+	Base&					operator=(const Base& other) = default;
+	Base&					operator=(Base&& other) = default;
 
 	using ClipBase::setDuration;
 	using ClipBase::setTimeStep;

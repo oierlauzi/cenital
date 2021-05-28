@@ -8,13 +8,13 @@ namespace Cenital::Control {
 class Message {
 public:
 	enum class Type {
-		ERROR,
-		REQUEST,
-		RESPONSE,
-		BROADCAST,
+		error,
+		request,
+		response,
+		broadcast,
 	};
 
-	explicit Message(	Type type = Type::ERROR,
+	explicit Message(	Type type = Type::error,
 						std::vector<std::string> payload = {} );
 	Message(const Message& other) = delete;
 	Message(Message&& other) = default;

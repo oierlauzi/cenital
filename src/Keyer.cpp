@@ -18,7 +18,6 @@
 #include <utility>
 #include <memory>
 #include <unordered_map>
-#include <iostream> //TODO remove
 
 namespace Cenital {
 
@@ -137,8 +136,8 @@ struct KeyerImpl {
 		static constexpr std::array<vk::SpecializationMapEntry, FRAGMENT_CONSTANT_ID_COUNT> FRAGMENT_SPECIALIZATION_LAYOUT = {
 			vk::SpecializationMapEntry(
 				FRAGMENT_CONSTANT_ID_SAMPLE_MODE,
-				offsetof(FragmentConstants, sameKeyFill),
-				sizeof(FragmentConstants::sameKeyFill)
+				offsetof(FragmentConstants, sampleMode),
+				sizeof(FragmentConstants::sampleMode)
 			),
 			vk::SpecializationMapEntry(
 				FRAGMENT_CONSTANT_ID_SAME_KEY_FILL,
@@ -362,6 +361,7 @@ struct KeyerImpl {
 		}
 
 		void updateChromaKeyHueUniform(float hue) {
+			hue = Math::mod(Math::mod(hue, 360.0f) + 360.0f, 360.0f); //First positive turn
 			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_HUE, hue);
 		}
 
@@ -562,17 +562,17 @@ struct KeyerImpl {
 
 			if(enabled) {
 				switch (channel) {
-				case Keyer::LinearKeyChannel::KEY_R:	result = 0x01; break;
-				case Keyer::LinearKeyChannel::KEY_G:	result = 0x02; break;
-				case Keyer::LinearKeyChannel::KEY_B:	result = 0x03; break;
-				case Keyer::LinearKeyChannel::KEY_A:	result = 0x04; break;
-				case Keyer::LinearKeyChannel::KEY_Y:	result = 0x05; break;
+				case Keyer::LinearKeyChannel::keyR:		result = 0x01; break;
+				case Keyer::LinearKeyChannel::keyG:		result = 0x02; break;
+				case Keyer::LinearKeyChannel::keyB:		result = 0x03; break;
+				case Keyer::LinearKeyChannel::keyA:		result = 0x04; break;
+				case Keyer::LinearKeyChannel::keyY:		result = 0x05; break;
 				
-				case Keyer::LinearKeyChannel::FILL_R:	result = 0x06; break;
-				case Keyer::LinearKeyChannel::FILL_G:	result = 0x07; break;
-				case Keyer::LinearKeyChannel::FILL_B:	result = 0x08; break;
-				case Keyer::LinearKeyChannel::FILL_A:	result = 0x09; break;
-				case Keyer::LinearKeyChannel::FILL_Y:	result = 0x0A; break;
+				case Keyer::LinearKeyChannel::fillR:	result = 0x06; break;
+				case Keyer::LinearKeyChannel::fillG:	result = 0x07; break;
+				case Keyer::LinearKeyChannel::fillB:	result = 0x08; break;
+				case Keyer::LinearKeyChannel::fillA:	result = 0x09; break;
+				case Keyer::LinearKeyChannel::fillY:	result = 0x0A; break;
 
 				default:								result = 0x00; break; //Not expected	
 				}
@@ -769,7 +769,7 @@ struct KeyerImpl {
 				assert(fragmentShader);
 
 				//Set the specialization constants
-				const vk::SpecializationInfo specializationInfo(
+				const vk::SpecializationInfo fragmentSpecializationInfo(
 					FRAGMENT_SPECIALIZATION_LAYOUT.size(), FRAGMENT_SPECIALIZATION_LAYOUT.data(),
 					sizeof(fragmentConstants), &fragmentConstants
 				);
@@ -789,7 +789,7 @@ struct KeyerImpl {
 						vk::ShaderStageFlagBits::eFragment,				//Shader type
 						fragmentShader,									//Shader handle
 						SHADER_ENTRY_POINT, 							//Shader entry point
-						&specializationInfo								//Specialization constants
+						&fragmentSpecializationInfo						//Specialization constants
 					),						
 				};
 
@@ -968,7 +968,7 @@ struct KeyerImpl {
 		, chromaKeyValueSmoothness(0.1f)
 
 		, linearKeyInverted(false)
-		, linearKeyChannel(Keyer::LinearKeyChannel::FILL_A)
+		, linearKeyChannel(Keyer::LinearKeyChannel::fillA)
 
 	{
 		//We'll set a rectangle as our default crop
@@ -1110,7 +1110,7 @@ struct KeyerImpl {
 			} else if(getChromaKeyEnabled()) {
 				result = true;
 			} else if(getLinearKeyEnabled()) {
-				if(getLinearKeyChannel() == Keyer::LinearKeyChannel::FILL_A) {
+				if(getLinearKeyChannel() == Keyer::LinearKeyChannel::fillA) {
 					result = Zuazo::hasAlpha(lastElement->getDescriptor()->getColorFormat());
 				} else {
 					result = true;
@@ -1534,7 +1534,7 @@ private:
 
 		if(keyer.isOpen()) {
 			const bool isValid = 	renderPass &&
-									blendingMode > BlendingMode::NONE ;
+									blendingMode > BlendingMode::none ;
 
 			if(opened && isValid) {
 				//It remains valid

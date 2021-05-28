@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shapes.h"
+#include "Control/Node.h"
 
 #include <zuazo/Utils/Pimpl.h>
 #include <zuazo/Utils/BufferView.h>
@@ -21,16 +22,16 @@ class Keyer
 public:
 
 	enum class LinearKeyChannel {
-		KEY_R,
-		KEY_G,
-		KEY_B,
-		KEY_A,
-		KEY_Y,
-		FILL_R,
-		FILL_G,
-		FILL_B,
-		FILL_A,
-		FILL_Y
+		keyR,
+		keyG,
+		keyB,
+		keyA,
+		keyY,
+		fillR,
+		fillG,
+		fillB,
+		fillA,
+		fillY
 
 	};
 
@@ -101,8 +102,41 @@ public:
 	bool									getLinearKeyInverted() const noexcept;
 
 	void									setLinearKeyChannel(LinearKeyChannel ch);
-	LinearKeyChannel						getLinearKeyChannel() const noexcept;					
+	LinearKeyChannel						getLinearKeyChannel() const noexcept;	
+
+
+
+	static void								registerCommands(Control::Node& node);				
 
 };
+
+ZUAZO_ENUM_ARITHMETIC_OPERATORS(Cenital::Keyer::LinearKeyChannel)
+ZUAZO_ENUM_COMP_OPERATORS(Cenital::Keyer::LinearKeyChannel)
+}
+
+
+
+namespace Zuazo {
+
+std::string_view toString(Cenital::Keyer::LinearKeyChannel channel) noexcept;
+bool fromString(std::string_view str, Cenital::Keyer::LinearKeyChannel& channel);
+std::ostream& operator<<(std::ostream& os, Cenital::Keyer::LinearKeyChannel channel);
+
+namespace Utils {
+
+template<typename T>
+struct EnumTraits;
+
+template<>
+struct EnumTraits<Cenital::Keyer::LinearKeyChannel> {
+	static constexpr Cenital::Keyer::LinearKeyChannel first() noexcept { 
+		return Cenital::Keyer::LinearKeyChannel::keyR; 
+	}
+	static constexpr Cenital::Keyer::LinearKeyChannel last() noexcept { 
+		return Cenital::Keyer::LinearKeyChannel::fillY; 
+	}
+};
+
+}
 
 }

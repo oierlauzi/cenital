@@ -59,7 +59,7 @@ void Node::help(Zuazo::ZuazoBase&,
 	const auto& tokens = request.getPayload();
 
 	if(tokens.size() == level) {
-		response.setType(Message::Type::RESPONSE);
+		response.setType(Message::Type::response);
 
 		//Elaborate the response
 		auto& payload = response.getPayload();
@@ -83,7 +83,7 @@ void Node::ping(Zuazo::ZuazoBase& base,
 	const auto& tokens = request.getPayload();
 
 	if(tokens.size() == level) {
-		response.setType(Message::Type::RESPONSE);
+		response.setType(Message::Type::response);
 		response.getPayload() = {
 			"pong",
 			base.getName()

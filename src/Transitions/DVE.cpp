@@ -1,18 +1,19 @@
-#include <DVETransition.h>
+#include <Transitions/DVE.h>
 
+#include <zuazo/StringConversions.h>
 #include <zuazo/Signal/DummyPad.h>
 #include <zuazo/Math/Trigonometry.h>
 #include <zuazo/Layers/VideoSurface.h>
 
-namespace Cenital {
+namespace Cenital::Transitions {
 
 using namespace Zuazo;
 
-struct DVETransitionImpl {
+struct DVEImpl {
 	using Input = Signal::DummyPad<Zuazo::Video>;
 	using VideoSurface = Layers::VideoSurface;
 
-	std::reference_wrapper<DVETransition>	owner;
+	std::reference_wrapper<DVE>	owner;
 
 	Input									prevIn;
 	Input									postIn;
@@ -23,10 +24,10 @@ struct DVETransitionImpl {
 	std::array<RendererBase::LayerRef, 2>	layerReferences;
 
 	float									angle;
-	DVETransition::Effect					effect;
+	DVE::Effect								effect;
 	
 
-	DVETransitionImpl(DVETransition& owner, Instance& instance)
+	DVEImpl(DVE& owner, Instance& instance)
 		: owner(owner)
 		, prevIn(owner, "prevIn")
 		, postIn(owner, "postIn")
@@ -34,7 +35,7 @@ struct DVETransitionImpl {
 		, postSurface(instance, "postSurface", Math::Vec2f())
 		, layerReferences{ postSurface, prevSurface }
 		, angle(0.0f)
-		, effect(DVETransition::Effect::UNCOVER)
+		, effect(DVE::Effect::uncover)
 	{
 		//Route the signals permanently
 		prevSurface << prevIn;
@@ -43,18 +44,18 @@ struct DVETransitionImpl {
 		//Configure the permanent parameters of the surfaces
 		prevSurface.setOpacity(1.0f); //defaults
 		postSurface.setOpacity(1.0f); //defaults
-		prevSurface.setScalingMode(ScalingMode::STRETCH); //defaults
-		postSurface.setScalingMode(ScalingMode::STRETCH); //defaults
-		prevSurface.setBlendingMode(BlendingMode::WRITE); //Not the default value
-		postSurface.setBlendingMode(BlendingMode::WRITE); //Not the default value
-		prevSurface.setRenderingLayer(RenderingLayer::BACKGROUND); //Not the default value
-		postSurface.setRenderingLayer(RenderingLayer::BACKGROUND); //Not the default value
+		prevSurface.setScalingMode(ScalingMode::stretch); //defaults
+		postSurface.setScalingMode(ScalingMode::stretch); //defaults
+		prevSurface.setBlendingMode(BlendingMode::write); //Not the default value
+		postSurface.setBlendingMode(BlendingMode::write); //Not the default value
+		prevSurface.setRenderingLayer(RenderingLayer::background); //Not the default value
+		postSurface.setRenderingLayer(RenderingLayer::background); //Not the default value
 	}
 
-	~DVETransitionImpl() = default;
+	~DVEImpl() = default;
 
 	void moved(ZuazoBase& base) {
-		owner = static_cast<DVETransition&>(base);
+		owner = static_cast<DVE&>(base);
 		prevIn.setLayout(base);
 		postIn.setLayout(base);
 	}
@@ -99,19 +100,19 @@ struct DVETransitionImpl {
 
 		//Configure the layers
 		switch (effect) {
-		case DVETransition::Effect::UNCOVER:
+		case DVE::Effect::uncover:
 			configureSlide(viewportSize, progress, true, false);
 			break;
 
-		case DVETransition::Effect::COVER:
+		case DVE::Effect::cover:
 			configureSlide(viewportSize, progress, false, true);
 			break;
 
-		case DVETransition::Effect::SLIDE:
+		case DVE::Effect::slide:
 			configureSlide(viewportSize, progress, true, true);
 			break;
 
-		case DVETransition::Effect::ROTATE_3D:
+		case DVE::Effect::rotate3D:
 			configureRotate3D(progress);
 			break;
 
@@ -120,7 +121,7 @@ struct DVETransitionImpl {
 		}
 	}
 
-	void sizeCallback(TransitionBase&, Math::Vec2f size) {
+	void sizeCallback(Base&, Math::Vec2f size) {
 		prevSurface.setSize(size);
 		postSurface.setSize(size);
 		updateCallback();
@@ -150,12 +151,12 @@ struct DVETransitionImpl {
 	}
 
 
-	void setEffect(DVETransition::Effect effect) {
+	void setEffect(DVE::Effect effect) {
 		this->effect = effect;
 		updateCallback();
 	}
 
-	DVETransition::Effect getEffect() const noexcept {
+	DVE::Effect getEffect() const noexcept {
 		return effect;
 	}
 
@@ -257,56 +258,56 @@ private:
 };
 
 
-DVETransition::DVETransition(	Instance& instance,
-								std::string name )
-	: Utils::Pimpl<DVETransitionImpl>({}, *this, instance)
-	, TransitionBase(
+DVE::DVE(	Instance& instance,
+			std::string name )
+	: Utils::Pimpl<DVEImpl>({}, *this, instance)
+	, Base(
 		instance,
 		std::move(name),
 		(*this)->prevIn.getInput(),
 		(*this)->postIn.getInput(),
 		(*this)->layerReferences,
-		std::bind(&DVETransitionImpl::moved, std::ref(**this), std::placeholders::_1),
-		std::bind(&DVETransitionImpl::open, std::ref(**this), std::placeholders::_1),
-		std::bind(&DVETransitionImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		std::bind(&DVETransitionImpl::close, std::ref(**this), std::placeholders::_1),
-		std::bind(&DVETransitionImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
-		std::bind(&DVETransitionImpl::updateCallback, std::ref(**this)),
-		std::bind(&DVETransitionImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
+		std::bind(&DVEImpl::moved, std::ref(**this), std::placeholders::_1),
+		std::bind(&DVEImpl::open, std::ref(**this), std::placeholders::_1),
+		std::bind(&DVEImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&DVEImpl::close, std::ref(**this), std::placeholders::_1),
+		std::bind(&DVEImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		std::bind(&DVEImpl::updateCallback, std::ref(**this)),
+		std::bind(&DVEImpl::sizeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
 {
 	//Leave it in a known state
 	(*this)->updateCallback();
 }
 
-DVETransition::DVETransition(DVETransition&& other) = default;
-DVETransition::~DVETransition() = default;
+DVE::DVE(DVE&& other) = default;
+DVE::~DVE() = default;
 
-DVETransition& DVETransition::operator=(DVETransition&& other) = default;
+DVE& DVE::operator=(DVE&& other) = default;
 
-void DVETransition::setScalingFilter(Zuazo::ScalingFilter filter) {
+void DVE::setScalingFilter(Zuazo::ScalingFilter filter) {
 	(*this)->setScalingFilter(filter);
 }
 
-Zuazo::ScalingFilter DVETransition::getScalingFilter() const noexcept {
+Zuazo::ScalingFilter DVE::getScalingFilter() const noexcept {
 	return (*this)->getScalingFilter();
 }
 
 
-void DVETransition::setAngle(float angle) {
+void DVE::setAngle(float angle) {
 	(*this)->setAngle(angle);
 }
 
-float DVETransition::getAngle() const noexcept {
+float DVE::getAngle() const noexcept {
 	return (*this)->getAngle();
 }
 
 
 
-void DVETransition::setEffect(Effect effect) {
+void DVE::setEffect(Effect effect) {
 	(*this)->setEffect(effect);
 }
 
-DVETransition::Effect DVETransition::getEffect() const noexcept {
+DVE::Effect DVE::getEffect() const noexcept {
 	return (*this)->getEffect();
 }
 

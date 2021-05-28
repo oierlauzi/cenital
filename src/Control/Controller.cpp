@@ -31,12 +31,12 @@ void Controller::process(	const Message& request,
 	std::lock_guard<Instance> lock(m_baseObject.get().getInstance());
 	m_root(m_baseObject, request, 0, response);
 
-	if(response.getType() == Message::Type::BROADCAST) {
+	if(response.getType() == Message::Type::broadcast) {
 		//Send it to all the listeners
 		broadcast(response);
 
 		//Make it as a plain success response for the sender
-		response.setType(Message::Type::RESPONSE);
+		response.setType(Message::Type::response);
 		response.getPayload().clear();
 	}
 }
@@ -61,7 +61,7 @@ void Controller::removeView(const ViewBase& view) {
 
 
 void Controller::broadcast(const Message& msg) {
-	assert(msg.getType() == Message::Type::BROADCAST);
+	assert(msg.getType() == Message::Type::broadcast);
 
 	std::for_each(
 		m_views.cbegin(), m_views.cend(),
