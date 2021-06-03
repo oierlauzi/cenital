@@ -4,6 +4,7 @@
 #include <Transitions/Mix.h>
 #include <Transitions/DVE.h>
 
+#include <Control/VideoModeCommands.h>
 #include <Control/MixerNode.h>
 #include <Control/Generic.h>
 
@@ -13,10 +14,11 @@
 namespace Cenital {
 
 using namespace Zuazo;
+using namespace Control;
 
 class TransitionEffectConfigNode {
 public:
-	using Callback = Control::Node::Callback;
+	using Callback = Node::Callback;
 	using PathMap = std::unordered_map<std::type_index, Callback>;
 
 	TransitionEffectConfigNode() = default;
@@ -48,9 +50,9 @@ public:
 
 
 	void operator()(Zuazo::ZuazoBase& base, 
-					const Control::Message& request,
+					const Message& request,
 					size_t level,
-					Control::Message& response ) const
+					Message& response ) const
 	{
 		const auto& tokens = request.getPayload();
 
@@ -80,7 +82,7 @@ private:
 
 class OverlayNode {
 public:
-	using Callback = Control::Node::Callback;
+	using Callback = Node::Callback;
 
 	explicit OverlayNode(MixEffect::OverlaySlot slot, Callback callback = {})
 		: m_slot(slot)
@@ -116,9 +118,9 @@ public:
 
 
 	void operator()(Zuazo::ZuazoBase& base, 
-					const Control::Message& request,
+					const Message& request,
 					size_t level,
-					Control::Message& response ) const
+					Message& response ) const
 	{
 		const auto& tokens = request.getPayload();
 
@@ -146,128 +148,128 @@ private:
 
 
 static void setScalingMode(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
+							const Message& request,
 							size_t level,
-							Control::Message& response ) 
+							Message& response ) 
 {
-	Control::invokeSetter<MixEffect, ScalingMode>(
+	invokeSetter<MixEffect, ScalingMode>(
 		&MixEffect::setScalingMode,
 		base, request, level, response
 	);
 }
 
 static void getScalingMode(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
+							const Message& request,
 							size_t level,
-							Control::Message& response ) 
+							Message& response ) 
 {
-	Control::invokeGetter<ScalingMode, MixEffect>(
+	invokeGetter<ScalingMode, MixEffect>(
 		&MixEffect::getScalingMode,
 		base, request, level, response
 	);
 }
 
 static void enumScalingMode(Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
+							const Message& request,
 							size_t level,
-							Control::Message& response ) 
+							Message& response ) 
 {
-	Control::enumerate<ScalingMode>(base, request, level, response);
+	enumerate<ScalingMode>(base, request, level, response);
 }
 
 
 static void setScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeSetter<MixEffect, ScalingFilter>(
+	invokeSetter<MixEffect, ScalingFilter>(
 		&MixEffect::setScalingFilter,
 		base, request, level, response
 	);
 }
 
 static void getScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeGetter<ScalingFilter, MixEffect>(
+	invokeGetter<ScalingFilter, MixEffect>(
 		&MixEffect::getScalingFilter,
 		base, request, level, response
 	);
 }
 
 static void enumScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::enumerate<ScalingFilter>(base, request, level, response);
+	enumerate<ScalingFilter>(base, request, level, response);
 }
 
 
 static void setInputCount(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
+							const Message& request,
 							size_t level,
-							Control::Message& response ) 
+							Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&MixEffect::setInputCount,
 		base, request, level, response
 	);
 }
 
 static void getInputCount(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
+							const Message& request,
 							size_t level,
-							Control::Message& response ) 
+							Message& response ) 
 {
-	Control::invokeGetter(
+	invokeGetter(
 		&MixEffect::getInputCount,
 		base, request, level, response
 	);
 }
 
 static void setProgram(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter<MixEffect, size_t>(
+	invokeSetter<MixEffect, size_t>(
 		std::bind(&MixEffect::setBackground, std::placeholders::_1, MixEffect::OutputBus::program, std::placeholders::_2),
 		base, request, level, response
 	);
 }
 
 static void getProgram(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeGetter<size_t, MixEffect>(
+	invokeGetter<size_t, MixEffect>(
 		std::bind(&MixEffect::getBackground, std::placeholders::_1, MixEffect::OutputBus::program),
 		base, request, level, response
 	);
 }
 
 static void setPreview(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter<MixEffect, size_t>(
+	invokeSetter<MixEffect, size_t>(
 		std::bind(&MixEffect::setBackground, std::placeholders::_1, MixEffect::OutputBus::preview, std::placeholders::_2),
 		base, request, level, response
 	);
 }
 
 static void getPreview(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeGetter<size_t, MixEffect>(
+	invokeGetter<size_t, MixEffect>(
 		std::bind(&MixEffect::getBackground, std::placeholders::_1, MixEffect::OutputBus::preview),
 		base, request, level, response
 	);
@@ -275,55 +277,55 @@ static void getPreview(	Zuazo::ZuazoBase& base,
 
 
 static void cut(Zuazo::ZuazoBase& base, 
-				const Control::Message& request,
+				const Message& request,
 				size_t level,
-				Control::Message& response ) 
+				Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&MixEffect::cut,
 		base, request, level, response
 	);
 }
 
 static void transition(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&MixEffect::transition,
 		base, request, level, response
 	);
 }
 
 static void setTransitionBar(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&MixEffect::setTransitionBar,
 		base, request, level, response
 	);
 }
 
 static void getTransitionBar(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeGetter(
+	invokeGetter(
 		&MixEffect::getTransitionBar,
 		base, request, level, response
 	);
 }
 
 static void setTransitionPreview(	Zuazo::ZuazoBase& base, 
-									const Control::Message& request,
+									const Message& request,
 									size_t level,
-									Control::Message& response ) 
+									Message& response ) 
 {
-	Control::invokeSetter<MixEffect, bool>( 
+	invokeSetter<MixEffect, bool>( 
 		[] (MixEffect& mixEffect, bool ena) {
 			mixEffect.setTransitionSlot(ena ? MixEffect::OutputBus::preview : MixEffect::OutputBus::program);
 		},
@@ -332,11 +334,11 @@ static void setTransitionPreview(	Zuazo::ZuazoBase& base,
 }
 
 static void getTransitionPreview(	Zuazo::ZuazoBase& base, 
-									const Control::Message& request,
+									const Message& request,
 									size_t level,
-									Control::Message& response ) 
+									Message& response ) 
 {
-	Control::invokeGetter<bool, MixEffect>( 
+	invokeGetter<bool, MixEffect>( 
 		[] (const MixEffect& mixEffect) -> bool{
 			return mixEffect.getTransitionSlot() == MixEffect::OutputBus::preview;
 		},
@@ -347,22 +349,22 @@ static void getTransitionPreview(	Zuazo::ZuazoBase& base,
 
 
 static void setTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&MixEffect::setSelectedTransition,
 		base, request, level, response
 	);
 }
 
 static void getTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeGetter<const std::string&, MixEffect>( 
+	invokeGetter<const std::string&, MixEffect>( 
 		[] (const MixEffect& mixEffect) -> const std::string& {
 			static const std::string noSelection = "";
 			const auto* trans = mixEffect.getSelectedTransition();	
@@ -373,9 +375,9 @@ static void getTransitionEffect(Zuazo::ZuazoBase& base,
 }
 
 static void enumTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -396,16 +398,16 @@ static void enumTransitionEffect(Zuazo::ZuazoBase& base,
 			}
 		);
 
-		response.setType(Control::Message::Type::response);
+		response.setType(Message::Type::response);
 	}
 }
 
 static void unsetTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
+								const Message& request,
 								size_t level,
-								Control::Message& response ) 
+								Message& response ) 
 {
-	Control::invokeSetter<MixEffect>( 
+	invokeSetter<MixEffect>( 
 		[] (MixEffect& mixEffect) -> void {
 			mixEffect.setSelectedTransition("");
 		},
@@ -416,22 +418,22 @@ static void unsetTransitionEffect(Zuazo::ZuazoBase& base,
 
 
 static void setUpstreamOverlayCount(Zuazo::ZuazoBase& base, 
-									const Control::Message& request,
+									const Message& request,
 									size_t level,
-									Control::Message& response ) 
+									Message& response ) 
 {
-	Control::invokeSetter<MixEffect, size_t>(
+	invokeSetter<MixEffect, size_t>(
 		std::bind(&MixEffect::setOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::upstream, std::placeholders::_2),
 		base, request, level, response
 	);
 }
 
 static void getUpstreamOverlayCount(Zuazo::ZuazoBase& base, 
-									const Control::Message& request,
+									const Message& request,
 									size_t level,
-									Control::Message& response ) 
+									Message& response ) 
 {
-	Control::invokeGetter<size_t, MixEffect>(
+	invokeGetter<size_t, MixEffect>(
 		std::bind(&MixEffect::getOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::upstream),
 		base, request, level, response
 	);
@@ -439,22 +441,22 @@ static void getUpstreamOverlayCount(Zuazo::ZuazoBase& base,
 
 
 static void setDownstreamOverlayCount(	Zuazo::ZuazoBase& base, 
-										const Control::Message& request,
+										const Message& request,
 										size_t level,
-										Control::Message& response ) 
+										Message& response ) 
 {
-	Control::invokeSetter<MixEffect, size_t>(
+	invokeSetter<MixEffect, size_t>(
 		std::bind(&MixEffect::setOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::downstream, std::placeholders::_2),
 		base, request, level, response
 	);
 }
 
 static void getDownstreamOverlayCount(	Zuazo::ZuazoBase& base, 
-										const Control::Message& request,
+										const Message& request,
 										size_t level,
-										Control::Message& response ) 
+										Message& response ) 
 {
-	Control::invokeGetter<size_t, MixEffect>(
+	invokeGetter<size_t, MixEffect>(
 		std::bind(&MixEffect::getOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::downstream),
 		base, request, level, response
 	);
@@ -464,15 +466,15 @@ static void getDownstreamOverlayCount(	Zuazo::ZuazoBase& base,
 
 
 
-void MixEffect::registerCommands(Control::Node& node) {
+void MixEffect::registerCommands(Node& node) {
 	//Get transition related nodes
-	Control::Node mixTransitionNode;
+	Node mixTransitionNode;
 	Transitions::Mix::registerCommands(mixTransitionNode);
-	Control::Node dveTransitionNode;
+	Node dveTransitionNode;
 	Transitions::DVE::registerCommands(dveTransitionNode);
 	
 	//Configure the transition node
-	auto transitionEffectNode = Control::makeAttributeNode(	
+	auto transitionEffectNode = makeAttributeNode(	
 		Cenital::setTransitionEffect, 
 		Cenital::getTransitionEffect, 
 		Cenital::enumTransitionEffect, 
@@ -488,7 +490,7 @@ void MixEffect::registerCommands(Control::Node& node) {
 
 
 	//Get the keyer related node
-	Control::Node keyerNode({
+	Node keyerNode({
 		{ "visible",		{} }, //TODO
 		{ "transition",		{} }, //TODO
 		{ "key",			{} }, //TODO
@@ -501,44 +503,61 @@ void MixEffect::registerCommands(Control::Node& node) {
 	OverlayNode upstreamOverlayNode(MixEffect::OverlaySlot::upstream, keyerNode);
 	OverlayNode downstreamOverlayNode(MixEffect::OverlaySlot::downstream, std::move(keyerNode));
 
-	Control::MixerNode mixerNode(
+	Node aimNode({
+		{ "scaling:mode",		makeAttributeNode(	Cenital::setScalingMode,
+													Cenital::getScalingMode,
+													Cenital::enumScalingMode) },
+		{ "scaling:filter",		makeAttributeNode(	Cenital::setScalingFilter,
+													Cenital::getScalingFilter,
+													Cenital::enumScalingFilter) },
+
+		{ "input:count",		makeAttributeNode(	Cenital::setInputCount, 
+													Cenital::getInputCount) },
+
+		{ "pgm",				makeAttributeNode(	Cenital::setProgram, 
+													Cenital::getProgram) },
+		{ "pvw",				makeAttributeNode(	Cenital::setPreview, 
+													Cenital::getPreview) },
+
+		{ "cut",				Cenital::cut },
+		{ "transition", 		Cenital::transition },
+		{ "transition:bar",		makeAttributeNode(	Cenital::setTransitionBar, 
+													Cenital::getTransitionBar) },
+
+		{ "transition:pvw",		makeAttributeNode(	Cenital::setTransitionPreview, 
+													Cenital::getTransitionPreview) },
+		{ "transition:effect",	std::move(transitionEffectNode) },
+
+		{ "us-overlay",			std::move(upstreamOverlayNode) },
+		{ "us-overlay:count",	makeAttributeNode(	Cenital::setUpstreamOverlayCount, 
+													Cenital::getUpstreamOverlayCount) },
+		{ "ds-overlay",			std::move(downstreamOverlayNode) },
+		{ "ds-overlay:count",	makeAttributeNode(	Cenital::setDownstreamOverlayCount, 
+													Cenital::getDownstreamOverlayCount) },
+
+	});
+
+	constexpr auto videoModeWr = 
+		VideoModeAttributes::resolution |
+		VideoModeAttributes::pixelAspectRatio |
+		VideoModeAttributes::colorPrimaries |
+		VideoModeAttributes::colorTransferFunction |
+		VideoModeAttributes::colorFormat ;
+	constexpr auto videoModeRd = 
+		VideoModeAttributes::resolution |
+		VideoModeAttributes::pixelAspectRatio |
+		VideoModeAttributes::colorPrimaries |
+		VideoModeAttributes::colorTransferFunction |
+		VideoModeAttributes::colorFormat ;
+
+	registerVideoModeCommands<MixEffect>(aimNode, videoModeWr, videoModeRd);
+
+	MixerNode mixerNode(
 		typeid(MixEffect),
-		Control::invokeBaseConstructor<MixEffect>,
-		Control::Node({
-			{ "scaling:mode",		Control::makeAttributeNode(	Cenital::setScalingMode,
-																Cenital::getScalingMode,
-																Cenital::enumScalingMode) },
-			{ "scaling:filter",		Control::makeAttributeNode(	Cenital::setScalingFilter,
-																Cenital::getScalingFilter,
-																Cenital::enumScalingFilter) },
-
-			{ "input:count",		Control::makeAttributeNode(	Cenital::setInputCount, 
-																Cenital::getInputCount) },
-
-			{ "pgm",				Control::makeAttributeNode(	Cenital::setProgram, 
-																Cenital::getProgram) },
-			{ "pvw",				Control::makeAttributeNode(	Cenital::setPreview, 
-																Cenital::getPreview) },
-
-			{ "cut",				Cenital::cut },
-			{ "transition", 		Cenital::transition },
-			{ "transition:bar",		Control::makeAttributeNode(	Cenital::setTransitionBar, 
-																Cenital::getTransitionBar) },
-
-			{ "transition:pvw",		Control::makeAttributeNode(	Cenital::setTransitionPreview, 
-																Cenital::getTransitionPreview) },
-			{ "transition:effect",	std::move(transitionEffectNode) },
-
-			{ "us-overlay",			std::move(upstreamOverlayNode) },
-			{ "us-overlay:count",	Control::makeAttributeNode(	Cenital::setUpstreamOverlayCount, 
-																Cenital::getUpstreamOverlayCount) },
-			{ "ds-overlay",			std::move(downstreamOverlayNode) },
-			{ "ds-overlay:count",	Control::makeAttributeNode(	Cenital::setDownstreamOverlayCount, 
-																Cenital::getDownstreamOverlayCount) },
-
-
-		})
+		invokeBaseConstructor<MixEffect>,
+		std::move(aimNode)
 	);
+
 
 	node.addPath("mix-effect", std::move(mixerNode));
 }
