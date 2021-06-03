@@ -26,6 +26,7 @@ public:
 
 	void 										addPath(std::string token, Callback path);
 	void 										removePath(const std::string& token);
+	Callback* 									getPath(const std::string& token);
 	const Callback* 							getPath(const std::string& token) const;
 
 	void 										operator()(	Zuazo::ZuazoBase& base, 

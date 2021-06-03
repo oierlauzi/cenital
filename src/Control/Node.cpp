@@ -19,6 +19,11 @@ void Node::removePath(const std::string& token) {
 	m_paths.erase(token);
 }
 
+Node::Callback* Node::getPath(const std::string& token) {
+	const auto ite = m_paths.find(token);
+	return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
+}
+
 const Node::Callback* Node::getPath(const std::string& token) const {
 	const auto ite = m_paths.find(token);
 	return (ite != m_paths.cend()) ? &(ite->second) : nullptr;

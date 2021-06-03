@@ -230,25 +230,4 @@ inline Node makeAttributeNode(	Node::Callback setter,
 	return result;
 }
 
-inline Node makeCollectionNode(	Node::Callback adder,
-								Node::Callback remover,
-								Node::Callback lister )
-{
-	Node result;
-
-	if(adder) {
-		result.addPath("add", std::move(adder));
-	}
-
-	if(remover) {
-		result.addPath("rm", std::move(remover));
-	}
-
-	if(lister) {
-		result.addPath("ls", std::move(lister));
-	}
-
-	return result;	
-}
-
 }

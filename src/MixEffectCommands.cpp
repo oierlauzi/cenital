@@ -5,7 +5,6 @@
 #include <Transitions/DVE.h>
 
 #include <Control/VideoModeCommands.h>
-#include <Control/MixerNode.h>
 #include <Control/Generic.h>
 
 #include <unordered_map>
@@ -40,6 +39,11 @@ public:
 
 	void removePath(std::type_index type) {
 		m_paths.erase(type);
+	}
+
+	Callback* getPath(std::type_index type) {
+		const auto ite = m_paths.find(type);
+		return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
 	}
 
 	const Callback* getPath(std::type_index type) const {
@@ -503,7 +507,7 @@ void MixEffect::registerCommands(Node& node) {
 	OverlayNode upstreamOverlayNode(MixEffect::OverlaySlot::upstream, keyerNode);
 	OverlayNode downstreamOverlayNode(MixEffect::OverlaySlot::downstream, std::move(keyerNode));
 
-	Node aimNode({
+	Node configNode({
 		{ "scaling:mode",		makeAttributeNode(	Cenital::setScalingMode,
 													Cenital::getScalingMode,
 													Cenital::enumScalingMode) },
@@ -550,16 +554,15 @@ void MixEffect::registerCommands(Node& node) {
 		VideoModeAttributes::colorTransferFunction |
 		VideoModeAttributes::colorFormat ;
 
-	registerVideoModeCommands<MixEffect>(aimNode, videoModeWr, videoModeRd);
+	registerVideoModeCommands<MixEffect>(configNode, videoModeWr, videoModeRd);
 
-	MixerNode mixerNode(
-		typeid(MixEffect),
+	Mixer::registerClass(
+		node, 
+		typeid(MixEffect), 
+		"mix-effect", 
 		invokeBaseConstructor<MixEffect>,
-		std::move(aimNode)
+		std::move(configNode)
 	);
-
-
-	node.addPath("mix-effect", std::move(mixerNode));
 }
 
 }

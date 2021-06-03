@@ -91,10 +91,6 @@ Node makeAttributeNode(	Node::Callback setter,
 						Node::Callback lister = {},
 						Node::Callback unsetter = {} );
 
-Node makeCollectionNode(Node::Callback adder,
-						Node::Callback remover,
-						Node::Callback lister = {} );
-
 }
 
 #include "Generic.inl"
