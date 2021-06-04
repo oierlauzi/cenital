@@ -11,10 +11,10 @@ namespace Cenital::Consumers {
 using namespace Zuazo;
 using namespace Control;
 
-void setTitle(	Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void setTitle(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeSetter<Window, std::string>(
 		&Window::setTitle,
@@ -22,10 +22,10 @@ void setTitle(	Zuazo::ZuazoBase& base,
 	);
 }
 
-void getTitle(	Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void getTitle(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeGetter<std::string, Window>(
 		&Window::getTitle,
@@ -34,10 +34,10 @@ void getTitle(	Zuazo::ZuazoBase& base,
 }
 
 
-void setSize(	Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void setSize(Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
 {
 	invokeSetter<Window, Math::Vec2i>(
 		&Window::setSize,
@@ -45,10 +45,10 @@ void setSize(	Zuazo::ZuazoBase& base,
 	);
 }
 
-void getSize(	Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void getSize(Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
 {
 	invokeGetter<Math::Vec2i, Window>(
 		&Window::getSize,
@@ -57,10 +57,10 @@ void getSize(	Zuazo::ZuazoBase& base,
 }
 
 
-void setPosition(	Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void setPosition(Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeSetter<Window, Math::Vec2i>(
 		&Window::setPosition,
@@ -68,10 +68,10 @@ void setPosition(	Zuazo::ZuazoBase& base,
 	);
 }
 
-void getPosition(	Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void getPosition(Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeGetter<Math::Vec2i, Window>(
 		&Window::getPosition,
@@ -80,10 +80,10 @@ void getPosition(	Zuazo::ZuazoBase& base,
 }
 
 
-void setOpacity(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void setOpacity(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeSetter<Window, float>(
 		&Window::setOpacity,
@@ -91,10 +91,10 @@ void setOpacity(Zuazo::ZuazoBase& base,
 	);
 }
 
-void getOpacity(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void getOpacity(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeGetter<float, Window>(
 		&Window::getOpacity,
@@ -103,10 +103,10 @@ void getOpacity(Zuazo::ZuazoBase& base,
 }
 
 
-void setResizeable(	Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void setResizeable(	Zuazo::ZuazoBase& base, 
+							const Message& request,
+							size_t level,
+							Message& response )
 {
 	invokeSetter<Window, bool>(
 		&Window::setResizeable,
@@ -114,10 +114,10 @@ void setResizeable(	Zuazo::ZuazoBase& base,
 	);
 }
 
-void getResizeable(	Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void getResizeable(	Zuazo::ZuazoBase& base, 
+							const Message& request,
+							size_t level,
+							Message& response )
 {
 	invokeGetter<bool, Window>(
 		&Window::getResizeable,
@@ -126,10 +126,10 @@ void getResizeable(	Zuazo::ZuazoBase& base,
 }
 
 
-void setDecorated(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void setDecorated(	Zuazo::ZuazoBase& base, 
+							const Message& request,
+							size_t level,
+							Message& response )
 {
 	invokeSetter<Window, bool>(
 		&Window::setDecorated,
@@ -137,10 +137,10 @@ void setDecorated(Zuazo::ZuazoBase& base,
 	);
 }
 
-void getDecorated(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void getDecorated(	Zuazo::ZuazoBase& base, 
+							const Message& request,
+							size_t level,
+							Message& response )
 {
 	invokeGetter<bool, Window>(
 		&Window::getDecorated,
@@ -149,10 +149,10 @@ void getDecorated(Zuazo::ZuazoBase& base,
 }
 
 
-void setMonitor(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void setMonitor(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	const auto& tokens = request.getPayload();
 	if(tokens.size() == level + 1) {
@@ -186,10 +186,10 @@ void setMonitor(Zuazo::ZuazoBase& base,
 	}
 }
 
-void getMonitor(Zuazo::ZuazoBase& base, 
-				const Message& request,
-				size_t level,
-				Message& response )
+static void getMonitor(	Zuazo::ZuazoBase& base, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	invokeGetter<std::string, Window>(
 		[] (const Window& window) -> std::string {
@@ -200,10 +200,10 @@ void getMonitor(Zuazo::ZuazoBase& base,
 	);
 }
 
-void enumMonitor(	Zuazo::ZuazoBase&, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void enumMonitor(Zuazo::ZuazoBase&, 
+						const Message& request,
+						size_t level,
+						Message& response )
 {
 	const auto& tokens = request.getPayload();
 	if(tokens.size() == level) {
@@ -223,10 +223,10 @@ void enumMonitor(	Zuazo::ZuazoBase&,
 	}
 }
 
-void unsetMonitor(	Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response )
+static void unsetMonitor(	Zuazo::ZuazoBase& base, 
+							const Message& request,
+							size_t level,
+							Message& response )
 {
 	invokeSetter<Window>(
 		[] (Window& window) {

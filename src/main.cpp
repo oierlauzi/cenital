@@ -3,6 +3,7 @@
 #include "MixEffect.h"
 #include "Consumers/Window.h"
 //#include "Sources/MediaPlayer.h"
+#include "Sources/NDI.h"
 
 #include "Control/Controller.h"
 #include "Control/CLIView.h"
@@ -34,6 +35,7 @@ static void registerCommands(Control::Controller& controller) {
 	MixEffect::registerCommands(root);
 	Consumers::Window::registerCommands(root);
 	//Sources::MediaPlayer::registerCommands(root);
+	Sources::NDI::registerCommands(root);
 }
 
 

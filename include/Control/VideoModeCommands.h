@@ -18,6 +18,8 @@ enum class VideoModeAttributes : int {
 	colorRange 				= Zuazo::Utils::bit(7),
 	colorFormat 			= Zuazo::Utils::bit(8),
 
+	all						= 0b111111111
+
 };
 
 ZUAZO_ENUM_BIT_OPERATORS(VideoModeAttributes)

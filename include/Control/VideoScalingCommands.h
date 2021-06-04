@@ -11,6 +11,7 @@ enum class VideoScalingAttributes : int {
 	mode 				= Zuazo::Utils::bit(0),
 	filter 				= Zuazo::Utils::bit(1),
 
+	all					= 0b11
 };
 
 ZUAZO_ENUM_BIT_OPERATORS(VideoScalingAttributes)
