@@ -1,10 +1,12 @@
 #include <Keyer.h>
 
 #include <Control/Generic.h>
-
-using namespace Zuazo;
+#include <Control/VideoScalingCommands.h>
 
 namespace Cenital {
+
+using namespace Zuazo;
+using namespace Control;
 
 static void setSize(Zuazo::ZuazoBase& base, 
 					const Control::Message& request,
@@ -142,67 +144,6 @@ static void getShape(	Zuazo::ZuazoBase& base,
 	}
 }
 
-
-static void setScalingMode(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
-							size_t level,
-							Control::Message& response ) 
-{
-	Control::invokeSetter<Keyer, ScalingMode>(
-		&Keyer::setScalingMode,
-		base, request, level, response
-	);
-}
-
-static void getScalingMode(	Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
-							size_t level,
-							Control::Message& response ) 
-{
-	Control::invokeGetter<ScalingMode, Keyer>(
-		&Keyer::getScalingMode,
-		base, request, level, response
-	);
-}
-
-static void enumScalingMode(Zuazo::ZuazoBase& base, 
-							const Control::Message& request,
-							size_t level,
-							Control::Message& response ) 
-{
-	Control::enumerate<ScalingMode>(base, request, level, response);
-}
-
-
-static void setScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::invokeSetter<Keyer, ScalingFilter>(
-		&Keyer::setScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void getScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::invokeGetter<ScalingFilter, Keyer>(
-		&Keyer::getScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void enumScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::enumerate<ScalingFilter>(base, request, level, response);
-}
 
 
 static void setBlendingMode(Zuazo::ZuazoBase& base, 
@@ -710,13 +651,6 @@ void Keyer::registerCommands(Control::Node& node) {
 	node.addPath("shape",					Control::makeAttributeNode(	Cenital::setShape,
 																		Cenital::getShape) );
 
-	node.addPath("scaling:mode",			Control::makeAttributeNode(	Cenital::setScalingMode,
-																		Cenital::getScalingMode,
-																		Cenital::enumScalingMode) );
-	node.addPath("scaling:filter",			Control::makeAttributeNode(	Cenital::setScalingFilter,
-																		Cenital::getScalingFilter,
-																		Cenital::enumScalingFilter) );
-
 	node.addPath("blending:mode",			Control::makeAttributeNode(	Cenital::setBlendingMode,
 																		Cenital::getBlendingMode,
 																		Cenital::enumBlendingMode) );
@@ -763,6 +697,14 @@ void Keyer::registerCommands(Control::Node& node) {
 	node.addPath("linear-key:ch",			Control::makeAttributeNode(	Cenital::setLinearKeyChannel,
 																		Cenital::getLinearKeyChannel,
 																		Cenital::enumLinearKeyChannel) );
+
+	constexpr auto videoScalingWr = 
+		VideoScalingAttributes::mode |
+		VideoScalingAttributes::filter ;
+	constexpr auto videoScalingRd = 
+		VideoScalingAttributes::mode |
+		VideoScalingAttributes::filter ;
+	registerVideoScalingCommands<Keyer>(node, videoScalingWr, videoScalingRd);
 
 }
 

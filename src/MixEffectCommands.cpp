@@ -5,6 +5,7 @@
 #include <Transitions/DVE.h>
 
 #include <Control/VideoModeCommands.h>
+#include <Control/VideoScalingCommands.h>
 #include <Control/Generic.h>
 
 #include <unordered_map>
@@ -151,66 +152,6 @@ private:
 
 
 
-static void setScalingMode(	Zuazo::ZuazoBase& base, 
-							const Message& request,
-							size_t level,
-							Message& response ) 
-{
-	invokeSetter<MixEffect, ScalingMode>(
-		&MixEffect::setScalingMode,
-		base, request, level, response
-	);
-}
-
-static void getScalingMode(	Zuazo::ZuazoBase& base, 
-							const Message& request,
-							size_t level,
-							Message& response ) 
-{
-	invokeGetter<ScalingMode, MixEffect>(
-		&MixEffect::getScalingMode,
-		base, request, level, response
-	);
-}
-
-static void enumScalingMode(Zuazo::ZuazoBase& base, 
-							const Message& request,
-							size_t level,
-							Message& response ) 
-{
-	enumerate<ScalingMode>(base, request, level, response);
-}
-
-
-static void setScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Message& request,
-								size_t level,
-								Message& response ) 
-{
-	invokeSetter<MixEffect, ScalingFilter>(
-		&MixEffect::setScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void getScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Message& request,
-								size_t level,
-								Message& response ) 
-{
-	invokeGetter<ScalingFilter, MixEffect>(
-		&MixEffect::getScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void enumScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Message& request,
-								size_t level,
-								Message& response ) 
-{
-	enumerate<ScalingFilter>(base, request, level, response);
-}
 
 
 static void setInputCount(	Zuazo::ZuazoBase& base, 
@@ -508,13 +449,6 @@ void MixEffect::registerCommands(Node& node) {
 	OverlayNode downstreamOverlayNode(MixEffect::OverlaySlot::downstream, std::move(keyerNode));
 
 	Node configNode({
-		{ "scaling:mode",		makeAttributeNode(	Cenital::setScalingMode,
-													Cenital::getScalingMode,
-													Cenital::enumScalingMode) },
-		{ "scaling:filter",		makeAttributeNode(	Cenital::setScalingFilter,
-													Cenital::getScalingFilter,
-													Cenital::enumScalingFilter) },
-
 		{ "input:count",		makeAttributeNode(	Cenital::setInputCount, 
 													Cenital::getInputCount) },
 
@@ -553,8 +487,15 @@ void MixEffect::registerCommands(Node& node) {
 		VideoModeAttributes::colorPrimaries |
 		VideoModeAttributes::colorTransferFunction |
 		VideoModeAttributes::colorFormat ;
-
 	registerVideoModeCommands<MixEffect>(configNode, videoModeWr, videoModeRd);
+
+	constexpr auto videoScalingWr = 
+		VideoScalingAttributes::mode |
+		VideoScalingAttributes::filter ;
+	constexpr auto videoScalingRd = 
+		VideoScalingAttributes::mode |
+		VideoScalingAttributes::filter ;
+	registerVideoScalingCommands<MixEffect>(configNode, videoScalingWr, videoScalingRd);
 
 	Mixer::registerClass(
 		node, 

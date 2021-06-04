@@ -1,41 +1,12 @@
 #include <Transitions/DVE.h>
 
 #include <Control/Generic.h>
-
-using namespace Zuazo;
+#include <Control/VideoScalingCommands.h>
 
 namespace Cenital::Transitions {
 
-static void setScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::invokeSetter( 
-		&DVE::setScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void getScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::invokeGetter(
-		&DVE::getScalingFilter,
-		base, request, level, response
-	);
-}
-
-static void enumScalingFilter(	Zuazo::ZuazoBase& base, 
-								const Control::Message& request,
-								size_t level,
-								Control::Message& response ) 
-{
-	Control::enumerate<ScalingFilter>(base, request, level, response); 
-}
-
+using namespace Zuazo;
+using namespace Control;
 
 static void setAngle(	Zuazo::ZuazoBase& base, 
 						const Control::Message& request,
@@ -97,15 +68,13 @@ static void enumEffect(	Zuazo::ZuazoBase& base,
 
 
 void DVE::registerCommands(Control::Node& node) {
-	node.addPath("scaling:filter",	Control::makeAttributeNode( Transitions::setScalingFilter,
-																Transitions::getScalingFilter,
-																Transitions::enumScalingFilter ));
 	node.addPath("angle",		 	Control::makeAttributeNode( Transitions::setAngle,
 																Transitions::getAngle ));
 	node.addPath("effect",		 	Control::makeAttributeNode( Transitions::setEffect,
 																Transitions::getEffect,
 																Transitions::enumEffect ));
 
+	registerVideoScalingFilterAttribute<DVE>(node, true, true);
 }
 
 }

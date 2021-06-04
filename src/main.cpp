@@ -1,6 +1,7 @@
 #include "Mixer.h"
 
 #include "MixEffect.h"
+#include "Consumers/Window.h"
 //#include "Sources/MediaPlayer.h"
 
 #include "Control/Controller.h"
@@ -31,6 +32,7 @@ static void registerCommands(Control::Controller& controller) {
 	//Register the commands we know ahead of time
 	Mixer::registerCommands(root);
 	MixEffect::registerCommands(root);
+	Consumers::Window::registerCommands(root);
 	//Sources::MediaPlayer::registerCommands(root);
 }
 
