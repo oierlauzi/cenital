@@ -137,8 +137,8 @@ inline void getVideoModeAttribute(	FG&& getter,
 {
 	invokeGetter<Q, T>(
 		[&getter] (T& el) -> Q {
-			const auto& negotiator = getNegotiator(el);
-			const auto& limit = getter(static_cast<const Zuazo::VideoMode&>(negotiator));
+			const auto& videoMode = el.getVideoMode();
+			const auto& limit = getter(static_cast<const Zuazo::VideoMode&>(videoMode));
 			return limit.hasValue() ? limit.value() : Q();
 		},
 		base, request, level, response
