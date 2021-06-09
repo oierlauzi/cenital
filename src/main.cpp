@@ -2,7 +2,7 @@
 
 #include "MixEffect.h"
 #include "Consumers/Window.h"
-//#include "Sources/MediaPlayer.h"
+#include "Sources/MediaPlayer.h"
 #include "Sources/NDI.h"
 
 #include "Control/Controller.h"
@@ -33,9 +33,9 @@ static void registerCommands(Control::Controller& controller) {
 	//Register the commands we know ahead of time
 	Mixer::registerCommands(root);
 	MixEffect::registerCommands(root);
-	Consumers::Window::registerCommands(root);
-	//Sources::MediaPlayer::registerCommands(root);
+	Sources::MediaPlayer::registerCommands(root);
 	Sources::NDI::registerCommands(root);
+	Consumers::Window::registerCommands(root);
 }
 
 
