@@ -119,7 +119,7 @@ ZUAZO_ENUM_COMP_OPERATORS(Keyer::LinearKeyChannel)
 namespace Zuazo {
 
 std::string_view toString(Cenital::Overlays::Keyer::LinearKeyChannel channel) noexcept;
-bool fromString(std::string_view str, Cenital::Overlays::Keyer::LinearKeyChannel& channel);
+size_t fromString(std::string_view str, Cenital::Overlays::Keyer::LinearKeyChannel& channel);
 std::ostream& operator<<(std::ostream& os, Cenital::Overlays::Keyer::LinearKeyChannel channel);
 
 namespace Utils {

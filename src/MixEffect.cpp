@@ -147,6 +147,7 @@ struct MixEffectImpl {
 	TransitionMap									transitions;
 	TransitionMap::iterator							selectedTransition;
 	MixEffect::OutputBus							transitionSlot;
+	Duration										transitionDuration;
 
 	std::array<std::vector<Overlay>, OVERLAY_CNT>	overlays;
 
@@ -172,6 +173,7 @@ struct MixEffectImpl {
 		, transitions()
 		, selectedTransition(transitions.end())
 		, transitionSlot(MixEffect::OutputBus::program)
+		, transitionDuration(std::chrono::seconds(1))
 		, overlays{}
 	{
 		//Route the signals
@@ -289,6 +291,7 @@ struct MixEffectImpl {
 
 				//Advance the time for the transition
 				transition->setRepeat(ClipBase::Repeat::none); //Ensure that it won't repeat
+				transition->setDuration(transitionDuration);
 				transition->advanceNormalSpeed(deltaTime);
 
 				//If transition has ended, cut. This will also stop and rewind the transition
@@ -591,6 +594,14 @@ struct MixEffectImpl {
 
 	Transitions::Base* getSelectedTransition() const noexcept {
 		return (selectedTransition != transitions.end()) ? selectedTransition->second.get() : nullptr;
+	}
+
+	void setTransitionDuration(Duration duration) {
+		transitionDuration = duration;
+	}
+
+	Duration getTransitionDuration() const noexcept {
+		return transitionDuration;
 	}
 
 
@@ -993,6 +1004,16 @@ Transitions::Base* MixEffect::getSelectedTransition() noexcept {
 const Transitions::Base* MixEffect::getSelectedTransition() const noexcept {
 	return (*this)->getSelectedTransition();
 }
+
+void MixEffect::setTransitionDuration(Duration duration) {
+	(*this)->setTransitionDuration(duration);
+}
+
+Duration MixEffect::getTransitionDuration() const noexcept {
+	return (*this)->getTransitionDuration();
+}
+
+
 
 
 

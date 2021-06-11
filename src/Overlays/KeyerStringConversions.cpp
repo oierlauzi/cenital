@@ -22,8 +22,13 @@ std::string_view toString(Cenital::Overlays::Keyer::LinearKeyChannel channel) no
 	}
 }
 
-bool fromString(std::string_view str, Cenital::Overlays::Keyer::LinearKeyChannel& channel) {
-	return enumFromString(str, channel);
+size_t fromString(std::string_view str, Cenital::Overlays::Keyer::LinearKeyChannel& channel) {
+	return enumFromString(
+		str, channel, 
+		[] (const Cenital::Overlays::Keyer::LinearKeyChannel& channel) -> std::string_view { 
+			return toString(channel);
+		}
+	);
 }
 
 std::ostream& operator<<(std::ostream& os, Cenital::Overlays::Keyer::LinearKeyChannel channel) {

@@ -236,12 +236,37 @@ static void getTransitionPreview(	Controller& controller,
 									Message& response ) 
 {
 	invokeGetter<bool, MixEffect>( 
-		[] (const MixEffect& mixEffect) -> bool{
+		[] (const MixEffect& mixEffect) -> bool {
 			return mixEffect.getTransitionSlot() == MixEffect::OutputBus::preview;
 		},
 		controller, base, request, level, response
 	);
 }
+
+static void setTransitionDuration(	Controller& controller,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
+{
+	invokeSetter<MixEffect, Duration>( 
+		&MixEffect::setTransitionDuration,
+		controller, base, request, level, response
+	);
+}
+
+static void getTransitionDuration(	Controller& controller,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
+{
+	invokeGetter<Duration, MixEffect>( 
+		&MixEffect::getTransitionDuration,
+		controller, base, request, level, response
+	);
+}
+
 
 
 
@@ -848,6 +873,8 @@ void MixEffect::registerCommands(Control::Controller& controller) {
 
 		{ "transition:pvw",			makeAttributeNode(	Cenital::setTransitionPreview, 
 														Cenital::getTransitionPreview) },
+		{ "transition:duration",	makeAttributeNode(	Cenital::setTransitionDuration, 
+														Cenital::getTransitionDuration) },
 		{ "transition:effect",		std::move(transitionEffectNode) },
 
 		{ "us-overlay",				std::move(upstreamOverlayNode) },

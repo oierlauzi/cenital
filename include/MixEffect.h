@@ -85,6 +85,8 @@ public:
 	void									setSelectedTransition(std::string_view name);
 	Transitions::Base*						getSelectedTransition() noexcept;
 	const Transitions::Base*				getSelectedTransition() const noexcept;
+	void									setTransitionDuration(Zuazo::Duration duration);
+	Zuazo::Duration 						getTransitionDuration() const noexcept;
 
 
 	void									setOverlayCount(OverlaySlot slot, size_t count);

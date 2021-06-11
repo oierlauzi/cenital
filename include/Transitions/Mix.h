@@ -57,7 +57,7 @@ ZUAZO_ENUM_COMP_OPERATORS(Mix::Effect)
 namespace Zuazo {
 
 std::string_view toString(Cenital::Transitions::Mix::Effect effect) noexcept;
-bool fromString(std::string_view str, Cenital::Transitions::Mix::Effect& effect);
+size_t fromString(std::string_view str, Cenital::Transitions::Mix::Effect& effect);
 std::ostream& operator<<(std::ostream& os, Cenital::Transitions::Mix::Effect effect);
 
 namespace Utils {

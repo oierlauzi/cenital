@@ -64,7 +64,7 @@ ZUAZO_ENUM_COMP_OPERATORS(DVE::Effect)
 namespace Zuazo {
 
 std::string_view toString(Cenital::Transitions::DVE::Effect effect) noexcept;
-bool fromString(std::string_view str, Cenital::Transitions::DVE::Effect& effect);
+size_t fromString(std::string_view str, Cenital::Transitions::DVE::Effect& effect);
 std::ostream& operator<<(std::ostream& os, Cenital::Transitions::DVE::Effect effect);
 
 namespace Utils {
