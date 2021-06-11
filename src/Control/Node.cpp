@@ -1,22 +1,25 @@
 #include <Control/Node.h>
 
+#include <Control/Controller.h>
 #include <Control/Message.h>
-
-using namespace Zuazo;
 
 namespace Cenital::Control {
 
-Node::Node(std::initializer_list<std::pair<const std::string, Callback>> ilist)
+using namespace Zuazo;
+
+Node::Node(std::initializer_list<PathMap::value_type> ilist)
 	: m_paths(ilist)
 {
 }
 
-void Node::addPath(std::string token, Callback path) {
-	m_paths.emplace(std::move(token), std::move(path));
+bool Node::addPath(std::string token, Callback path) {
+	bool result;
+	std::tie(std::ignore, result) = m_paths.emplace(std::move(token), std::move(path));
+	return result;
 }
 
-void Node::removePath(const std::string& token) {
-	m_paths.erase(token);
+bool Node::removePath(const std::string& token) {
+	return m_paths.erase(token);
 }
 
 Node::Callback* Node::getPath(const std::string& token) {
@@ -29,7 +32,8 @@ const Node::Callback* Node::getPath(const std::string& token) const {
 	return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
 }
 
-void Node::operator()(	Zuazo::ZuazoBase& base, 
+void Node::operator()(	Controller& controller,
+						ZuazoBase& base, 
 						const Message& request,
 						size_t level,
 						Message& response  ) const 
@@ -44,31 +48,32 @@ void Node::operator()(	Zuazo::ZuazoBase& base,
 		//first element as it is the one we've used.
 		const Callback* path;
 		if(token == "help") {
-			help(base, request, level + 1, response);
+			help(controller,base, request, level + 1, response);
+		} else if(token == "name") {
+			name(controller,base, request, level + 1, response);
+		} else if(token == "type") {
+			type(controller,base, request, level + 1, response);
 		} else if(token == "ping") {
-			ping(base, request, level + 1, response);
+			ping(controller,base, request, level + 1, response);
 		} else if((path = getPath(token))) {
-			if(*path) {
-				(*path)(base, request, level + 1, response);
-			}
+			Utils::invokeIf(*path, controller, base, request, level + 1, response);
 		}
 	}
 }
 
 
-void Node::help(Zuazo::ZuazoBase&, 
+void Node::help(Controller&,
+				ZuazoBase&, 
 				const Message& request,
 				size_t level,
 				Message& response ) const
 {
 	const auto& tokens = request.getPayload();
-
 	if(tokens.size() == level) {
-		response.setType(Message::Type::response);
-
 		//Elaborate the response
+		response.setType(Message::Type::response);
 		auto& payload = response.getPayload();
-		payload = { "help", "ping" }; //Ensured paths
+		payload = { "help", "name", "type", "ping" }; //Ensured paths
 		payload.reserve(m_paths.size() + 2);
 		std::transform(
 			m_paths.cbegin(), m_paths.cend(),
@@ -80,19 +85,52 @@ void Node::help(Zuazo::ZuazoBase&,
 	}
 }
 
-void Node::ping(Zuazo::ZuazoBase& base, 
+void Node::name(Controller&,
+				ZuazoBase& base, 
+				const Message& request,
+				size_t level,
+				Message& response )
+{
+
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level) {
+		response.setType(Message::Type::response);
+		response.getPayload() = { base.getName() };
+	}
+}
+
+
+void Node::type(Controller& controller,
+				ZuazoBase& base, 
+				const Message& request,
+				size_t level,
+				Message& response )
+{
+
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level) {
+		//Determine the identity of the base class
+		const auto& classIndex = controller.getClassIndex();
+		const auto* classEntry = classIndex.find(typeid(base));
+
+		if(classEntry) {
+			//Elaborate the response
+			response.setType(Message::Type::response);
+			response.getPayload() = { classEntry->getName() };
+		}
+	}
+}
+
+void Node::ping(Controller&,
+				ZuazoBase&, 
 				const Message& request,
 				size_t level,
 				Message& response   ) 
 {
 	const auto& tokens = request.getPayload();
-
 	if(tokens.size() == level) {
 		response.setType(Message::Type::response);
-		response.getPayload() = {
-			"pong",
-			base.getName()
-		};
+		response.getPayload() = { "pong" };
 	}
 }
 

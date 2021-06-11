@@ -52,6 +52,7 @@ inline bool parse(	Zuazo::Utils::BufferView<const std::string> tokens,
 
 template<typename T, typename... Args, typename F>
 inline void invokeSetter(	F&& func, 
+							Controller&,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
@@ -82,23 +83,25 @@ inline void invokeSetter(	F&& func,
 
 template<typename T, typename... Args>
 inline void invokeSetter(	MemFnPtr<void, T, Args...> func, 
+							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
-	invokeSetter<T, Args...>(std::mem_fn(func), base, request, level, response);
+	invokeSetter<T, Args...>(std::mem_fn(func), controller, base, request, level, response);
 }
 
 template<typename T, typename... Args>
 inline void invokeSetter(	FnPtr<void, T&, Args...> func, 
+							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	//Ref is used to force the generic expresion
-	invokeSetter<T, Args...>(std::cref(func), base, request, level, response);
+	invokeSetter<T, Args...>(std::cref(func), controller, base, request, level, response);
 }
 
 
@@ -106,6 +109,7 @@ inline void invokeSetter(	FnPtr<void, T&, Args...> func,
 
 template<typename R, typename T, typename... Args, typename F>
 inline void invokeGetter(	F&& func, 
+							Controller&,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
@@ -136,23 +140,25 @@ inline void invokeGetter(	F&& func,
 
 template<typename R, typename T, typename... Args>
 inline void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
+							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
-	invokeGetter<R, T, Args...>(std::mem_fn(func), base, request, level, response);
+	invokeGetter<R, T, Args...>(std::mem_fn(func), controller, base, request, level, response);
 }
 
 template<typename R, typename T, typename... Args>
 inline void invokeGetter(	FnPtr<void, T&, Args...> func, 
+							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	//Ref is used to force the generic expresion
-	invokeGetter<R, T, Args...>(std::cref(func), base, request, level, response);
+	invokeGetter<R, T, Args...>(std::cref(func), controller, base, request, level, response);
 }
 
 
@@ -180,7 +186,8 @@ invokeBaseConstructor(	Zuazo::Instance& instance,
 
 
 template<typename T>
-inline void enumerate(	Zuazo::ZuazoBase&, 
+inline void enumerate(	Controller&,
+						Zuazo::ZuazoBase&, 
 						const Message& request,
 						size_t level,
 						Message& response )

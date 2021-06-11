@@ -8,73 +8,92 @@ namespace Cenital::Transitions {
 using namespace Zuazo;
 using namespace Control;
 
-static void setAngle(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void setAngle(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter( 
+	invokeSetter( 
 		&DVE::setAngle,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getAngle(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void getAngle(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeGetter(
+	invokeGetter(
 		&DVE::getAngle,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 
-static void setEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void setEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&DVE::setEffect,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void getEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeGetter(
+	invokeGetter(
 		&DVE::getEffect,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void enumEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::enumerate<DVE::Effect>(base, request, level, response);
+	enumerate<DVE::Effect>(controller, base, request, level, response);
 }
 
 
 
 
 
-void DVE::registerCommands(Control::Node& node) {
-	node.addPath("angle",		 	Control::makeAttributeNode( Transitions::setAngle,
-																Transitions::getAngle ));
-	node.addPath("effect",		 	Control::makeAttributeNode( Transitions::setEffect,
-																Transitions::getEffect,
-																Transitions::enumEffect ));
+void DVE::registerCommands(Controller& controller) {
+	Node configNode;
 
-	registerVideoScalingFilterAttribute<DVE>(node, true, true);
+	configNode.addPath("angle",		 	makeAttributeNode( 	Transitions::setAngle,
+															Transitions::getAngle ));
+	configNode.addPath("effect",		makeAttributeNode(	Transitions::setEffect,
+															Transitions::getEffect,
+															Transitions::enumEffect ));
+
+	registerVideoScalingFilterAttribute<DVE>(configNode, true, true);
+
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(DVE),
+		ClassIndex::Entry(
+			"dve",
+			std::move(configNode),
+			invokeBaseConstructor<DVE>,
+			typeid(Base)
+		)	
+	);
+
 }
 
 }

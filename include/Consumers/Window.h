@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Control/Node.h>
+#include <Control/Controller.h>
 
 #include <zuazo/Consumers/RendererWrapper.h>
 #include <zuazo/Renderers/Window.h>
@@ -47,7 +47,7 @@ public:
 	static Monitor					getPrimaryMonitor();
 	static Zuazo::Utils::BufferView<const Monitor>	getMonitors();
 
-	static void						registerCommands(Control::Node& node);
+	static void						registerCommands(Control::Controller& controller);
 };
 
 

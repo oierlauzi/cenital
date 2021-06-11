@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Node.h"
+#include "ClassIndex.h"
 
 #include <zuazo/ZuazoBase.h>
 
@@ -28,6 +29,9 @@ public:
 	Node&											getRootNode() noexcept;
 	const Node&										getRootNode() const noexcept;
 
+	ClassIndex&										getClassIndex() noexcept;
+	const ClassIndex&								getClassIndex() const noexcept;
+
 	void											process(const Message& request,
 															Message& response);
 
@@ -36,6 +40,7 @@ public:
 	
 private:
 	Node											m_root;
+	ClassIndex										m_classIndex;
 	std::vector<std::reference_wrapper<ViewBase>>	m_views;
 	std::reference_wrapper<Zuazo::ZuazoBase>		m_baseObject;
 

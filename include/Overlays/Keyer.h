@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Shapes.h"
-#include "Control/Node.h"
+#include "Base.h"
+#include "../Shapes.h"
+#include "../Control/Controller.h"
 
 #include <zuazo/Utils/Pimpl.h>
 #include <zuazo/Utils/BufferView.h>
@@ -9,13 +10,12 @@
 #include <zuazo/LayerBase.h>
 #include <zuazo/Video.h>
 
-namespace Cenital {
+namespace Cenital::Overlays {
 
 struct KeyerImpl;
 class Keyer
 	: private Zuazo::Utils::Pimpl<KeyerImpl>
-	, public Zuazo::ZuazoBase
-	, public Zuazo::LayerBase
+	, public Base
 	, public Zuazo::VideoScalerBase
 {
 	friend KeyerImpl;
@@ -106,21 +106,21 @@ public:
 
 
 
-	static void								registerCommands(Control::Node& node);				
+	static void								registerCommands(Control::Controller& controller);				
 
 };
 
-ZUAZO_ENUM_ARITHMETIC_OPERATORS(Cenital::Keyer::LinearKeyChannel)
-ZUAZO_ENUM_COMP_OPERATORS(Cenital::Keyer::LinearKeyChannel)
+ZUAZO_ENUM_ARITHMETIC_OPERATORS(Keyer::LinearKeyChannel)
+ZUAZO_ENUM_COMP_OPERATORS(Keyer::LinearKeyChannel)
 }
 
 
 
 namespace Zuazo {
 
-std::string_view toString(Cenital::Keyer::LinearKeyChannel channel) noexcept;
-bool fromString(std::string_view str, Cenital::Keyer::LinearKeyChannel& channel);
-std::ostream& operator<<(std::ostream& os, Cenital::Keyer::LinearKeyChannel channel);
+std::string_view toString(Cenital::Overlays::Keyer::LinearKeyChannel channel) noexcept;
+bool fromString(std::string_view str, Cenital::Overlays::Keyer::LinearKeyChannel& channel);
+std::ostream& operator<<(std::ostream& os, Cenital::Overlays::Keyer::LinearKeyChannel channel);
 
 namespace Utils {
 
@@ -128,12 +128,12 @@ template<typename T>
 struct EnumTraits;
 
 template<>
-struct EnumTraits<Cenital::Keyer::LinearKeyChannel> {
-	static constexpr Cenital::Keyer::LinearKeyChannel first() noexcept { 
-		return Cenital::Keyer::LinearKeyChannel::keyR; 
+struct EnumTraits<Cenital::Overlays::Keyer::LinearKeyChannel> {
+	static constexpr Cenital::Overlays::Keyer::LinearKeyChannel first() noexcept { 
+		return Cenital::Overlays::Keyer::LinearKeyChannel::keyR; 
 	}
-	static constexpr Cenital::Keyer::LinearKeyChannel last() noexcept { 
-		return Cenital::Keyer::LinearKeyChannel::fillY; 
+	static constexpr Cenital::Overlays::Keyer::LinearKeyChannel last() noexcept { 
+		return Cenital::Overlays::Keyer::LinearKeyChannel::fillY; 
 	}
 };
 

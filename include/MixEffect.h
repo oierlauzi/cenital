@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Keyer.h"
-#include "Control/Node.h"
+#include "Control/Controller.h"
 #include "Transitions/Base.h"
+#include "Overlays/Base.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Video.h>
@@ -90,8 +90,9 @@ public:
 	void									setOverlayCount(OverlaySlot slot, size_t count);
 	size_t									getOverlayCount(OverlaySlot slot) const;
 
-	Keyer&									getOverlay(OverlaySlot slot, size_t idx);
-	const Keyer&							getOverlay(OverlaySlot slot, size_t idx) const;
+	std::unique_ptr<Overlays::Base>			setOverlay(OverlaySlot slot, size_t idx, std::unique_ptr<Overlays::Base> overlay);
+	Overlays::Base*							getOverlay(OverlaySlot slot, size_t idx);
+	const Overlays::Base*					getOverlay(OverlaySlot slot, size_t idx) const;
 	void									setOverlayVisible(OverlaySlot slot, size_t idx, bool visible);
 	bool									getOverlayVisible(OverlaySlot slot, size_t idx) const;
 	void									setOverlayTransition(OverlaySlot slot, size_t idx, bool transition);
@@ -100,7 +101,7 @@ public:
 	size_t									getOverlaySignal(OverlaySlot slot, size_t overlay, std::string_view port) const noexcept;
 
 
-	static void 							registerCommands(Control::Node& node);
+	static void 							registerCommands(Control::Controller& controller);
 
 };
 

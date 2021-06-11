@@ -13,71 +13,77 @@ constexpr bool test(VideoScalingAttributes bitfield, VideoScalingAttributes bits
 
 
 template<typename T>
-inline void setVideoScalingMode(	Zuazo::ZuazoBase& base, 
+inline void setVideoScalingMode(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	invokeSetter<T, Zuazo::ScalingMode>(
 		&T::setScalingMode,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoScalingMode(	Zuazo::ZuazoBase& base, 
+inline void getVideoScalingMode(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	invokeGetter<Zuazo::ScalingMode, T>(
 		&T::getScalingMode,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-inline void enumVideoScalingMode(	Zuazo::ZuazoBase& base, 
+inline void enumVideoScalingMode(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	enumerate<Zuazo::ScalingMode>(
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 template<typename T>
-inline void setVideoScalingFilter(	Zuazo::ZuazoBase& base, 
+inline void setVideoScalingFilter(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	invokeSetter<T, Zuazo::ScalingFilter>(
 		&T::setScalingFilter,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoScalingFilter(	Zuazo::ZuazoBase& base, 
+inline void getVideoScalingFilter(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	invokeGetter<Zuazo::ScalingFilter, T>(
 		&T::getScalingFilter,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-inline void enumVideoScalingFilter(	Zuazo::ZuazoBase& base, 
+inline void enumVideoScalingFilter(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	enumerate<Zuazo::ScalingFilter>(
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 

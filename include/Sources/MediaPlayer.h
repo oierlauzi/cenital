@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Control/Node.h"
+#include "../Control/Controller.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Video.h>
@@ -40,7 +40,7 @@ public:
 
 
 
-	static void registerCommands(Control::Node& node);
+	static void 									registerCommands(Control::Controller& controller);
 
 private:
 

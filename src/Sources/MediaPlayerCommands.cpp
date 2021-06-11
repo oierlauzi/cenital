@@ -2,6 +2,7 @@
 
 #include <Mixer.h>
 
+#include <Control/ElementNode.h>
 #include <Control/VideoModeCommands.h>
 #include <Control/VideoScalingCommands.h>
 #include <Control/Generic.h>
@@ -11,101 +12,54 @@ namespace Cenital::Sources {
 using namespace Zuazo;
 using namespace Control;
 
-class ClipConfigNode {
-public:
-	using Callback = Node::Callback;
-
-	ClipConfigNode() = default;
-	ClipConfigNode(Callback callback)
-		: m_callback(std::move(callback))
-	{
-	}
-
-	ClipConfigNode(const ClipConfigNode& other) = default;
-	ClipConfigNode(ClipConfigNode&& other) = default;
-	~ClipConfigNode() = default;
-
-	ClipConfigNode&	operator=(const ClipConfigNode& other) = default;
-	ClipConfigNode&	operator=(ClipConfigNode&& other) = default;
-
-	void setCallback(Callback cbk) {
-		m_callback = std::move(cbk);
-	}
-
-	const Callback& getCabllback() const noexcept {
-		return m_callback;
-	}
-
-	void operator()(Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response ) const
-	{
-		const auto& tokens = request.getPayload();
-		if(tokens.size() > level) {
-			assert(typeid(base) == typeid(MediaPlayer));
-			auto& mp = static_cast<MediaPlayer&>(base);
-			const auto& clipName = tokens[level];
-
-			//Try to find the requested clip
-			auto* clip = mp.getClip(clipName);
-			if(clip && m_callback) {
-				//Success! Invoke the associated callback
-				Utils::invokeIf(m_callback, *clip, request, level + 1, response);
-			}
-		}
-	}
-
-private:
-	Callback		m_callback;
-
-};
-
-
-
-static void setClipState(	Zuazo::ZuazoBase& base, 
+static void setClipState(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeSetter<MediaPlayer::Clip, ClipBase::State>(
 		&MediaPlayer::Clip::setState,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getClipState(	Zuazo::ZuazoBase& base, 
+static void getClipState(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeGetter<ClipBase::State, MediaPlayer::Clip>(
 		&MediaPlayer::Clip::getState,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumClipState(	Zuazo::ZuazoBase& base, 
+static void enumClipState(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
-	enumerate<ClipBase::State>(base, request, level, response);
+	enumerate<ClipBase::State>(controller, base, request, level, response);
 }
 
 
-static void setClipRepeat(	Zuazo::ZuazoBase& base, 
+static void setClipRepeat(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeSetter<MediaPlayer::Clip, ClipBase::Repeat>(
 		&MediaPlayer::Clip::setRepeat,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void unsetClipRepeat(Zuazo::ZuazoBase& base, 
+static void unsetClipRepeat(Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
@@ -114,49 +68,53 @@ static void unsetClipRepeat(Zuazo::ZuazoBase& base,
 		[] (MediaPlayer::Clip& clip) {
 			clip.setRepeat(ClipBase::Repeat::none);
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getClipRepeat(	Zuazo::ZuazoBase& base, 
+static void getClipRepeat(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeGetter<ClipBase::Repeat, MediaPlayer::Clip>(
 		&MediaPlayer::Clip::getRepeat,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumClipRepeat(	Zuazo::ZuazoBase& base, 
+static void enumClipRepeat(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
-	enumerate<ClipBase::Repeat>(base, request, level, response);
+	enumerate<ClipBase::Repeat>(controller, base, request, level, response);
 }
 
 
-static void setClipSpeed(	Zuazo::ZuazoBase& base, 
+static void setClipSpeed(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeSetter<MediaPlayer::Clip, double>(
 		&MediaPlayer::Clip::setPlaySpeed,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getClipSpeed(	Zuazo::ZuazoBase& base, 
+static void getClipSpeed(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeGetter<double, MediaPlayer::Clip>(
 		&MediaPlayer::Clip::getPlaySpeed,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
@@ -164,7 +122,8 @@ static void getClipSpeed(	Zuazo::ZuazoBase& base,
 
 
 
-static void addClip(Zuazo::ZuazoBase& base, 
+static void addClip(Controller&,
+					ZuazoBase& base,
 					const Message& request,
 					size_t level,
 					Message& response ) 
@@ -186,7 +145,8 @@ static void addClip(Zuazo::ZuazoBase& base,
 	}
 }
 
-static void rmClip(	Zuazo::ZuazoBase& base, 
+static void rmClip(	Controller&,
+					ZuazoBase& base,
 					const Message& request,
 					size_t level,
 					Message& response ) 
@@ -208,7 +168,8 @@ static void rmClip(	Zuazo::ZuazoBase& base,
 	}
 }
 
-static void enumClips(	Zuazo::ZuazoBase& base, 
+static void enumClips(	Controller&,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
@@ -235,10 +196,17 @@ static void enumClips(	Zuazo::ZuazoBase& base,
 	}
 }
 
-static void setClip(Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response ) 
+static Zuazo::ZuazoBase* getClip(Zuazo::ZuazoBase& base, const std::string clipName) {
+	assert(typeid(base) == typeid(MediaPlayer));
+	auto& mp = static_cast<MediaPlayer&>(base);
+	return mp.getClip(clipName);
+}
+
+static void setCurrentClip(	Controller&,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 	if(tokens.size() == level + 1) {
@@ -257,36 +225,41 @@ static void setClip(Zuazo::ZuazoBase& base,
 	}
 }
 
-static void getClip(Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response ) 
+static void getCurrentClip(	Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response ) 
 {
 	invokeGetter<std::string, MediaPlayer>(
 		[] (const MediaPlayer& mp) -> std::string {
 			const auto* clip = mp.getCurrentClip();
 			return clip ? clip->getName() : "";
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void unsetClip(	Zuazo::ZuazoBase& base, 
-						const Message& request,
-						size_t level,
-						Message& response ) 
+static void unsetCurrentClip(	Controller& controller,
+								ZuazoBase& base,
+								const Message& request,
+								size_t level,
+								Message& response ) 
 {
 	invokeSetter<MediaPlayer>(
 		[] (MediaPlayer& mp) {
 			const auto ret = mp.setCurrentClip("");
 			assert(!ret); Utils::ignore(ret);
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-void MediaPlayer::registerCommands(Node& node) {
+
+
+
+void MediaPlayer::registerCommands(Controller& controller) {
 	Node clipConfigNode({
 		{ "state", 	makeAttributeNode(	setClipState,
 										getClipState,
@@ -300,14 +273,28 @@ void MediaPlayer::registerCommands(Node& node) {
 
 	});
 
+	//Register the clip. It should not be instantiated
+	//Do all de possible to prevent referencing it
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(MediaPlayer::Clip),
+		ClassIndex::Entry(
+			"input-media-player-clip",
+			std::move(clipConfigNode),
+			{},
+			typeid(void)
+		)	
+	);
+
+
 	Node clipNode({
 		{ "add",	Sources::addClip },
 		{ "rm",		Sources::rmClip },
 		{ "enum",	Sources::enumClips },
-		{ "set",	Sources::setClip },
-		{ "get",	Sources::getClip },
-		{ "unset",	Sources::unsetClip },
-		{ "config",	ClipConfigNode(std::move(clipConfigNode)) }
+		{ "set",	Sources::setCurrentClip },
+		{ "get",	Sources::getCurrentClip },
+		{ "unset",	Sources::unsetCurrentClip },
+		{ "config",	ElementNode(Sources::getClip) }
 
 	});
 
@@ -315,12 +302,15 @@ void MediaPlayer::registerCommands(Node& node) {
 		{ "clip",	std::move(clipNode) },
 	});
 
-	Mixer::registerClass(
-		node, 
-		typeid(MediaPlayer), 
-		"input-media-player", 
-		invokeBaseConstructor<MediaPlayer>,
-		std::move(configNode)
+	//Register it
+	classIndex.registerClass(
+		typeid(MediaPlayer),
+		ClassIndex::Entry(
+			"input-media-player",
+			std::move(configNode),
+			invokeBaseConstructor<MediaPlayer>,
+			typeid(ZuazoBase)
+		)	
 	);
 }
 

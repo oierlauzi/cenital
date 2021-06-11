@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Base.h"
-#include "../Control/Node.h"
+#include "../Control/Controller.h"
 
 #include <zuazo/Utils/Pimpl.h>
 #include <zuazo/ZuazoBase.h>
@@ -16,8 +16,8 @@ class Mix
 {
 	friend MixImpl;
 public:
-	enum class Effect {
-		NONE = -1,
+	enum class Effect : int {
+		none = -1,
 
 		mix,
 		add,
@@ -25,7 +25,7 @@ public:
 		
 		//Add here
 
-		COUNT
+		count
 	};
 
 	Mix(Zuazo::Instance& instance,
@@ -43,7 +43,7 @@ public:
 
 
 
-	static void			registerCommands(Control::Node& node);	
+	static void			registerCommands(Control::Controller& controller);	
 
 };
 
@@ -68,10 +68,10 @@ struct EnumTraits;
 template<>
 struct EnumTraits<Cenital::Transitions::Mix::Effect> {
 	static constexpr Cenital::Transitions::Mix::Effect first() noexcept { 
-		return Cenital::Transitions::Mix::Effect::NONE + static_cast<Cenital::Transitions::Mix::Effect>(1); 
+		return Cenital::Transitions::Mix::Effect::none + static_cast<Cenital::Transitions::Mix::Effect>(1); 
 	}
 	static constexpr Cenital::Transitions::Mix::Effect last() noexcept { 
-		return Cenital::Transitions::Mix::Effect::COUNT - static_cast<Cenital::Transitions::Mix::Effect>(1);
+		return Cenital::Transitions::Mix::Effect::count - static_cast<Cenital::Transitions::Mix::Effect>(1);
 	}
 };
 

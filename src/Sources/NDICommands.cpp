@@ -24,7 +24,8 @@ static Zuazo::NDI::Finder& getSourceFinder() {
 	return *singleton;
 }
 
-static void setSource(	Zuazo::ZuazoBase& base, 
+static void setSource(	Controller&,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -39,7 +40,7 @@ static void setSource(	Zuazo::ZuazoBase& base,
 		//Check if the source exists
 		const auto ite = std::find_if(
 			sources.cbegin(), sources.cend(),
-			[&sourceName] (const Zuazo::NDI::Source source) -> bool {
+			[&sourceName] (const NDI::Source source) -> bool {
 				return source.getName() == sourceName;
 			}
 		);
@@ -59,7 +60,8 @@ static void setSource(	Zuazo::ZuazoBase& base,
 	}
 }
 
-static void getSource(	Zuazo::ZuazoBase& base, 
+static void getSource(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -68,11 +70,12 @@ static void getSource(	Zuazo::ZuazoBase& base,
 		[] (const NDI& ndi) -> std::string {
 			return ndi.getSource().getName();
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumSource(	Zuazo::ZuazoBase&, 
+static void enumSource(	Controller&,
+						ZuazoBase&, 
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -88,7 +91,7 @@ static void enumSource(	Zuazo::ZuazoBase&,
 		std::transform(
 			sources.cbegin(), sources.cend(),
 			std::back_inserter(payload),
-			[] (const Zuazo::NDI::Source& source) -> std::string {
+			[] (const NDI::Source& source) -> std::string {
 				return std::string(source.getName());
 			}
 		);
@@ -96,7 +99,8 @@ static void enumSource(	Zuazo::ZuazoBase&,
 	}
 }
 
-static void unsetSource(Zuazo::ZuazoBase& base, 
+static void unsetSource(Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -105,14 +109,14 @@ static void unsetSource(Zuazo::ZuazoBase& base,
 		[] (NDI& ndi) {
 			ndi.setSource(NDI::Source());
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 
-void NDI::registerCommands(Node& node) {
+void NDI::registerCommands(Controller& controller) {
 
 
 	Node configNode({
@@ -127,12 +131,16 @@ void NDI::registerCommands(Node& node) {
 	constexpr auto videoModeRd = VideoModeAttributes::all;
 	registerVideoModeCommands<NDI>(configNode, videoModeWr, videoModeRd);
 
-	Mixer::registerClass(
-		node, 
-		typeid(NDI), 
-		"input-ndi", 
-		invokeBaseConstructor<NDI>,
-		std::move(configNode)
+	//Register it
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(NDI),
+		ClassIndex::Entry(
+			"input-ndi",
+			std::move(configNode),
+			invokeBaseConstructor<NDI>,
+			typeid(ZuazoBase)
+		)	
 	);
 }
 

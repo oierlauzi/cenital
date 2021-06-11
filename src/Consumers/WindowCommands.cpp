@@ -11,145 +11,158 @@ namespace Cenital::Consumers {
 using namespace Zuazo;
 using namespace Control;
 
-static void setTitle(	Zuazo::ZuazoBase& base, 
+static void setTitle(	Controller& controller,
+						ZuazoBase& base, 
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeSetter<Window, std::string>(
 		&Window::setTitle,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getTitle(	Zuazo::ZuazoBase& base, 
+static void getTitle(	Controller& controller,
+						ZuazoBase& base,  
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeGetter<std::string, Window>(
 		&Window::getTitle,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setSize(Zuazo::ZuazoBase& base, 
+static void setSize(Controller& controller,
+					ZuazoBase& base, 
 					const Message& request,
 					size_t level,
 					Message& response )
 {
 	invokeSetter<Window, Math::Vec2i>(
 		&Window::setSize,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getSize(Zuazo::ZuazoBase& base, 
+static void getSize(Controller& controller,
+					ZuazoBase& base,
 					const Message& request,
 					size_t level,
 					Message& response )
 {
 	invokeGetter<Math::Vec2i, Window>(
 		&Window::getSize,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setPosition(Zuazo::ZuazoBase& base, 
+static void setPosition(Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeSetter<Window, Math::Vec2i>(
 		&Window::setPosition,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getPosition(Zuazo::ZuazoBase& base, 
+static void getPosition(Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeGetter<Math::Vec2i, Window>(
 		&Window::getPosition,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setOpacity(	Zuazo::ZuazoBase& base, 
+static void setOpacity(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeSetter<Window, float>(
 		&Window::setOpacity,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getOpacity(	Zuazo::ZuazoBase& base, 
+static void getOpacity(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
 {
 	invokeGetter<float, Window>(
 		&Window::getOpacity,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setResizeable(	Zuazo::ZuazoBase& base, 
+static void setResizeable(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	invokeSetter<Window, bool>(
 		&Window::setResizeable,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getResizeable(	Zuazo::ZuazoBase& base, 
+static void getResizeable(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	invokeGetter<bool, Window>(
 		&Window::getResizeable,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setDecorated(	Zuazo::ZuazoBase& base, 
+static void setDecorated(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	invokeSetter<Window, bool>(
 		&Window::setDecorated,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getDecorated(	Zuazo::ZuazoBase& base, 
+static void getDecorated(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response )
 {
 	invokeGetter<bool, Window>(
 		&Window::getDecorated,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
-static void setMonitor(	Zuazo::ZuazoBase& base, 
+static void setMonitor(	Controller&,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -186,7 +199,8 @@ static void setMonitor(	Zuazo::ZuazoBase& base,
 	}
 }
 
-static void getMonitor(	Zuazo::ZuazoBase& base, 
+static void getMonitor(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -196,11 +210,12 @@ static void getMonitor(	Zuazo::ZuazoBase& base,
 			const auto monitor = window.getMonitor();
 			return (monitor != Renderers::Window::NO_MONITOR) ? std::string(monitor.getName()) : "";
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumMonitor(Zuazo::ZuazoBase&, 
+static void enumMonitor(Controller&,
+						ZuazoBase&, 
 						const Message& request,
 						size_t level,
 						Message& response )
@@ -223,7 +238,8 @@ static void enumMonitor(Zuazo::ZuazoBase&,
 	}
 }
 
-static void unsetMonitor(	Zuazo::ZuazoBase& base, 
+static void unsetMonitor(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response )
@@ -232,13 +248,13 @@ static void unsetMonitor(	Zuazo::ZuazoBase& base,
 		[] (Window& window) {
 			window.setMonitor(Renderers::Window::NO_MONITOR, nullptr);
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
-void Window::registerCommands(Node& node) {
+void Window::registerCommands(Controller& controller) {
 
 
 	Node configNode({
@@ -282,12 +298,16 @@ void Window::registerCommands(Node& node) {
 		VideoScalingAttributes::filter ;
 	registerVideoScalingCommands<Window>(configNode, videoScalingWr, videoScalingRd);
 
-	Mixer::registerClass(
-		node, 
-		typeid(Window), 
-		"output-window", 
-		invokeBaseConstructor<Window, Math::Vec2i>,
-		std::move(configNode)
+	//Register it
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(Window),
+		ClassIndex::Entry(
+			"output-window",
+			std::move(configNode),
+			invokeBaseConstructor<Window, Math::Vec2f>,
+			typeid(ZuazoBase)
+		)	
 	);
 }
 

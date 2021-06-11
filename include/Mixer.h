@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Control/Node.h"
+#include "Control/Controller.h"
 
 #include <zuazo/ZuazoBase.h>
 #include <zuazo/Utils/Pimpl.h>
@@ -16,9 +16,6 @@ class Mixer
 	, public Zuazo::ZuazoBase
 {
 public:
-	using ConstructCallback = std::function<std::unique_ptr<Zuazo::ZuazoBase>(	Zuazo::Instance&, 
-																				Zuazo::Utils::BufferView<const std::string> )>;
-
 	Mixer(	Zuazo::Instance& instance,
 			std::string name );
 	Mixer(const Mixer& other) = delete;
@@ -46,12 +43,7 @@ public:
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements() const;
 	std::vector<std::reference_wrapper<const ZuazoBase>>	listElements(std::type_index type) const;
 
-	static void 											registerCommands(Control::Node& node);
-	static void 											registerClass(	Control::Node& node,
-																			std::type_index type,
-																			std::string name,
-																			ConstructCallback construct,
-																			Control::Node::Callback configure );
+	static void 											registerCommands(Control::Controller& controller);
 
 };
 	

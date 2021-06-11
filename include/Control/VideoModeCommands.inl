@@ -109,6 +109,7 @@ inline std::set<T> getVideoModeAttributeSupport(const Zuazo::VideoBase& base,
 
 template<typename T, typename Q, typename FS>
 inline void setVideoModeAttribute(	FS&& setter,
+									Controller& controller,
 									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
@@ -124,12 +125,13 @@ inline void setVideoModeAttribute(	FS&& setter,
 			//Set the negotiator
 			setNegotiator(el, std::move(negotiator));
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename Q, typename T, typename FG>
 inline void getVideoModeAttribute(	FG&& getter,
+									Controller& controller,
 									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
@@ -141,13 +143,14 @@ inline void getVideoModeAttribute(	FG&& getter,
 			const auto& limit = getter(static_cast<const Zuazo::VideoMode&>(videoMode));
 			return limit.hasValue() ? limit.value() : Q();
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T, typename Q, typename FS, typename FG>
 inline void enumVideoModeAttribute(	FS&& setter,
 									FG&& getter,
+									Controller&,
 									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
@@ -184,109 +187,118 @@ inline void enumVideoModeAttribute(	FS&& setter,
 
 
 template<typename T>
-inline void setVideoModeFrameRate(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeFrameRate(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::Rate>(
 		std::mem_fn(&Zuazo::VideoMode::setFrameRate),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeFrameRate(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeFrameRate(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	getVideoModeAttribute<Zuazo::Rate, T>(
 		std::mem_fn(&Zuazo::VideoMode::getFrameRate),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeResolution(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeResolution(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::Resolution>(
 		std::mem_fn(&Zuazo::VideoMode::setResolution),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeResolution(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeResolution(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	getVideoModeAttribute<Zuazo::Resolution, T>(
 		std::mem_fn(&Zuazo::VideoMode::getResolution),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModePixelAspectRatio(	Zuazo::ZuazoBase& base, 
+inline void setVideoModePixelAspectRatio(	Controller& controller,
+											Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,
 											Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::AspectRatio>(
 		std::mem_fn(&Zuazo::VideoMode::setPixelAspectRatio),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModePixelAspectRatio(	Zuazo::ZuazoBase& base, 
+inline void getVideoModePixelAspectRatio(	Controller& controller,
+											Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,
 											Message& response )
 {
 	getVideoModeAttribute<Zuazo::AspectRatio, T>(
 		std::mem_fn(&Zuazo::VideoMode::getPixelAspectRatio),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorPrimaries(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorPrimaries(	Controller& controller,
+										Zuazo::ZuazoBase& base, 
 										const Message& request,
 										size_t level,
 										Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorPrimaries>(
 		std::mem_fn(&Zuazo::VideoMode::setColorPrimaries),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorPrimaries(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorPrimaries(	Controller& controller,
+										Zuazo::ZuazoBase& base, 
 										const Message& request,
 										size_t level,
 										Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorPrimaries, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorPrimaries),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorPrimaries(Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorPrimaries(Controller& controller,
+										Zuazo::ZuazoBase& base, 
 										const Message& request,
 										size_t level,
 										Message& response )
@@ -294,38 +306,41 @@ inline void enumVideoModeColorPrimaries(Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorPrimaries>(
 		std::mem_fn(&Zuazo::VideoMode::setColorPrimaries),
 		std::mem_fn(&Zuazo::VideoMode::getColorPrimaries),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorModel(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorModel(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorModel>(
 		std::mem_fn(&Zuazo::VideoMode::setColorModel),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorModel(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorModel(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorModel, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorModel),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorModel(Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorModel(Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
@@ -333,38 +348,41 @@ inline void enumVideoModeColorModel(Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorModel>(
 		std::mem_fn(&Zuazo::VideoMode::setColorModel),
 		std::mem_fn(&Zuazo::VideoMode::getColorModel),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorTransferFunction(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorTransferFunction(	Controller& controller,
+												Zuazo::ZuazoBase& base, 
 												const Message& request,
 												size_t level,
 												Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorTransferFunction>(
 		std::mem_fn(&Zuazo::VideoMode::setColorTransferFunction),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorTransferFunction(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorTransferFunction(	Controller& controller,
+												Zuazo::ZuazoBase& base, 
 												const Message& request,
 												size_t level,
 												Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorTransferFunction, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorTransferFunction),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorTransferFunction(	Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorTransferFunction(	Controller& controller,
+												Zuazo::ZuazoBase& base, 
 												const Message& request,
 												size_t level,
 												Message& response )
@@ -372,38 +390,41 @@ inline void enumVideoModeColorTransferFunction(	Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorTransferFunction>(
 		std::mem_fn(&Zuazo::VideoMode::setColorTransferFunction),
 		std::mem_fn(&Zuazo::VideoMode::getColorTransferFunction),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorSubsampling(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorSubsampling(	Controller& controller,
+											Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,
 											Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorSubsampling>(
 		std::mem_fn(&Zuazo::VideoMode::setColorSubsampling),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorSubsampling(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorSubsampling(	Controller& controller,
+											Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,
 											Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorSubsampling, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorSubsampling),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorSubsampling(	Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorSubsampling(	Controller& controller,
+											Zuazo::ZuazoBase& base, 
 											const Message& request,
 											size_t level,
 											Message& response )
@@ -411,38 +432,41 @@ inline void enumVideoModeColorSubsampling(	Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorSubsampling>(
 		std::mem_fn(&Zuazo::VideoMode::setColorSubsampling),
 		std::mem_fn(&Zuazo::VideoMode::getColorSubsampling),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorRange(	Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorRange(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorRange>(
 		std::mem_fn(&Zuazo::VideoMode::setColorRange),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorRange(	Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorRange(	Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorRange, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorRange),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorRange(Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorRange(Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
@@ -450,38 +474,41 @@ inline void enumVideoModeColorRange(Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorRange>(
 		std::mem_fn(&Zuazo::VideoMode::setColorRange),
 		std::mem_fn(&Zuazo::VideoMode::getColorRange),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
 template<typename T>
-inline void setVideoModeColorFormat(Zuazo::ZuazoBase& base, 
+inline void setVideoModeColorFormat(Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	setVideoModeAttribute<T, Zuazo::ColorFormat>(
 		std::mem_fn(&Zuazo::VideoMode::setColorFormat),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void getVideoModeColorFormat(Zuazo::ZuazoBase& base, 
+inline void getVideoModeColorFormat(Controller& controller,
+									Zuazo::ZuazoBase& base, 
 									const Message& request,
 									size_t level,
 									Message& response )
 {
 	getVideoModeAttribute<Zuazo::ColorFormat, T>(
 		std::mem_fn(&Zuazo::VideoMode::getColorFormat),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 template<typename T>
-inline void enumVideoModeColorFormat(	Zuazo::ZuazoBase& base, 
+inline void enumVideoModeColorFormat(	Controller& controller,
+										Zuazo::ZuazoBase& base, 
 										const Message& request,
 										size_t level,
 										Message& response )
@@ -489,7 +516,7 @@ inline void enumVideoModeColorFormat(	Zuazo::ZuazoBase& base,
 	enumVideoModeAttribute<T, Zuazo::ColorFormat>(
 		std::mem_fn(&Zuazo::VideoMode::setColorFormat),
 		std::mem_fn(&Zuazo::VideoMode::getColorFormat),
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 

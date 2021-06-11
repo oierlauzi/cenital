@@ -1,9 +1,16 @@
 #include "Mixer.h"
 
 #include "MixEffect.h"
-#include "Consumers/Window.h"
+
 #include "Sources/MediaPlayer.h"
 #include "Sources/NDI.h"
+
+#include "Consumers/Window.h"
+
+#include "Transitions/Mix.h"
+#include "Transitions/DVE.h"
+
+#include "Overlays/Keyer.h"
 
 #include "Control/Controller.h"
 #include "Control/CLIView.h"
@@ -28,14 +35,27 @@
 using namespace Cenital;
 
 static void registerCommands(Control::Controller& controller) {
-	auto& root = controller.getRootNode();
+	//Register the commands we know ahead of time.
+	//Although the ordering is not important, calls
+	//are ordered by type for convenience.
 
-	//Register the commands we know ahead of time
-	Mixer::registerCommands(root);
-	MixEffect::registerCommands(root);
-	Sources::MediaPlayer::registerCommands(root);
-	Sources::NDI::registerCommands(root);
-	Consumers::Window::registerCommands(root);
+	//Register basics
+	Mixer::registerCommands(controller);
+	MixEffect::registerCommands(controller);
+
+	//Register sources
+	Sources::MediaPlayer::registerCommands(controller);
+	Sources::NDI::registerCommands(controller);
+
+	//Register consumers
+	Consumers::Window::registerCommands(controller);
+
+	//Register transitions
+	Transitions::Mix::registerCommands(controller);
+	Transitions::DVE::registerCommands(controller);
+
+	//Register overlays
+	Overlays::Keyer::registerCommands(controller);
 }
 
 

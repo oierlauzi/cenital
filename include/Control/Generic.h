@@ -32,7 +32,8 @@ bool parse(	Zuazo::Utils::BufferView<const std::string> tokens,
 
 
 template<typename T, typename... Args, typename F>
-void invokeSetter(	F&& func, 
+void invokeSetter(	F&& func,
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -40,6 +41,7 @@ void invokeSetter(	F&& func,
 
 template<typename T, typename... Args>
 void invokeSetter(	MemFnPtr<void, T, Args...> func, 
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -47,6 +49,7 @@ void invokeSetter(	MemFnPtr<void, T, Args...> func,
 
 template<typename T, typename... Args>
 void invokeSetter(	FnPtr<void, T&, Args...> func, 
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -55,6 +58,7 @@ void invokeSetter(	FnPtr<void, T&, Args...> func,
 
 template<typename R, typename T, typename... Args, typename F>
 void invokeGetter(	F&& func, 
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -62,6 +66,7 @@ void invokeGetter(	F&& func,
 
 template<typename R, typename T, typename... Args>
 void invokeGetter(	ConstMemFnPtr<R, T, Args...> func,
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -69,6 +74,7 @@ void invokeGetter(	ConstMemFnPtr<R, T, Args...> func,
 
 template<typename R, typename T, typename... Args>
 void invokeGetter(	FnPtr<R, T&, Args...> func,
+					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
@@ -80,7 +86,8 @@ std::unique_ptr<Zuazo::ZuazoBase> invokeBaseConstructor(Zuazo::Instance& instanc
 
 
 template<typename T>
-void enumerate(	Zuazo::ZuazoBase& base, 
+void enumerate(	Controller& controller,
+				Zuazo::ZuazoBase& base, 
 				const Message& request,
 				size_t level,
 				Message& response );

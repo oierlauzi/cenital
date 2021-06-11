@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Base.h"
-#include "../Control/Node.h"
+#include "../Control/Controller.h"
 
 #include <zuazo/Utils/Pimpl.h>
 #include <zuazo/ZuazoBase.h>
@@ -16,8 +16,8 @@ class DVE
 {
 	friend DVEImpl;
 public:
-	enum class Effect {
-		NONE = -1,
+	enum class Effect : int {
+		none = -1,
 
 		uncover,
 		cover,
@@ -26,7 +26,7 @@ public:
 		
 		//Add here
 
-		COUNT
+		count
 	};
 
 	DVE(Zuazo::Instance& instance,
@@ -50,7 +50,7 @@ public:
 
 
 
-	static void						registerCommands(Control::Node& node);	
+	static void						registerCommands(Control::Controller& controller);	
 
 };
 
@@ -75,10 +75,10 @@ struct EnumTraits;
 template<>
 struct EnumTraits<Cenital::Transitions::DVE::Effect> {
 	static constexpr Cenital::Transitions::DVE::Effect first() noexcept { 
-		return Cenital::Transitions::DVE::Effect::NONE + static_cast<Cenital::Transitions::DVE::Effect>(1); 
+		return Cenital::Transitions::DVE::Effect::none + static_cast<Cenital::Transitions::DVE::Effect>(1); 
 	}
 	static constexpr Cenital::Transitions::DVE::Effect last() noexcept { 
-		return Cenital::Transitions::DVE::Effect::COUNT - static_cast<Cenital::Transitions::DVE::Effect>(1);
+		return Cenital::Transitions::DVE::Effect::count - static_cast<Cenital::Transitions::DVE::Effect>(1);
 	}
 };
 

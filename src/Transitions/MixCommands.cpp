@@ -4,43 +4,63 @@
 
 namespace Cenital::Transitions {
 
-static void setEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+using namespace Zuazo;
+using namespace Control;
+
+static void setEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeSetter(
+	invokeSetter(
 		&Mix::setEffect,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void getEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::invokeGetter(
+	invokeGetter(
 		&Mix::getEffect,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumEffect(	Zuazo::ZuazoBase& base, 
-						const Control::Message& request,
+static void enumEffect(	Controller& controller,
+						ZuazoBase& base, 
+						const Message& request,
 						size_t level,
-						Control::Message& response ) 
+						Message& response ) 
 {
-	Control::enumerate<Mix::Effect>(base, request, level, response);
+	enumerate<Mix::Effect>(controller, base, request, level, response);
 }
 
 
 
 
-void Mix::registerCommands(Control::Node& node) {
-	node.addPath("effect", 	Control::makeAttributeNode( Transitions::setEffect,
+void Mix::registerCommands(Controller& controller) {
+	Node configNode;
+
+	configNode.addPath("effect", 	makeAttributeNode(	Transitions::setEffect,
 														Transitions::getEffect,
 														Transitions::enumEffect ));
+
+
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(Mix),
+		ClassIndex::Entry(
+			"mix",
+			std::move(configNode),
+			invokeBaseConstructor<Mix>,
+			typeid(Base)
+		)	
+	);
 
 }
 

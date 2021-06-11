@@ -1,9 +1,9 @@
 #include <MixEffect.h>
 
 #include <Mixer.h>
-#include <Transitions/Mix.h>
-#include <Transitions/DVE.h>
 
+#include <Control/Node.h>
+#include <Control/ElementNode.h>
 #include <Control/VideoModeCommands.h>
 #include <Control/VideoScalingCommands.h>
 #include <Control/Generic.h>
@@ -16,256 +16,207 @@ namespace Cenital {
 using namespace Zuazo;
 using namespace Control;
 
-class TransitionEffectConfigNode {
-public:
-	using Callback = Node::Callback;
-	using PathMap = std::unordered_map<std::type_index, Callback>;
-
-	TransitionEffectConfigNode() = default;
-	TransitionEffectConfigNode(std::initializer_list<PathMap::value_type> ilist)
-		: m_paths(ilist)
-	{
-	}
-
-	TransitionEffectConfigNode(const TransitionEffectConfigNode& other) = default;
-	TransitionEffectConfigNode(TransitionEffectConfigNode&& other) = default;
-	~TransitionEffectConfigNode() = default;
-
-	TransitionEffectConfigNode&	operator=(const TransitionEffectConfigNode& other) = default;
-	TransitionEffectConfigNode&	operator=(TransitionEffectConfigNode&& other) = default;
-
-	void addPath(std::type_index type, Callback callback) {
-		m_paths.emplace(type, std::move(callback));
-	}
-
-	void removePath(std::type_index type) {
-		m_paths.erase(type);
-	}
-
-	Callback* getPath(std::type_index type) {
-		const auto ite = m_paths.find(type);
-		return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
-	}
-
-	const Callback* getPath(std::type_index type) const {
-		const auto ite = m_paths.find(type);
-		return (ite != m_paths.cend()) ? &(ite->second) : nullptr;
-	}
 
 
-
-	void operator()(Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response ) const
-	{
-		const auto& tokens = request.getPayload();
-
-		if(tokens.size() > level) {
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-			const auto& transitionName = tokens[level];
-
-			//Try to find the requested transition
-			auto* transition = mixEffect.getTransition(transitionName);
-			if(transition) {
-				//Determine the type of the transion
-				const auto* cbk = getPath(typeid(*transition));
-				if(cbk) {
-					//Success! Invoke the associated callback
-					Utils::invokeIf(*cbk, *transition, request, level + 1, response);
-				}
-			}
-		}
-	}
-
-private:
-	PathMap			m_paths;
-
-};
-
-
-class OverlayNode {
-public:
-	using Callback = Node::Callback;
-
-	explicit OverlayNode(MixEffect::OverlaySlot slot, Callback callback = {})
-		: m_slot(slot)
-		, m_callback(std::move(callback))
-	{
-	}
-
-	OverlayNode(const OverlayNode& other) = default;
-	OverlayNode(OverlayNode&& other) = default;
-	~OverlayNode() = default;
-
-	OverlayNode&	operator=(const OverlayNode& other) = default;
-	OverlayNode&	operator=(OverlayNode&& other) = default;
-
-
-
-	void setSlot(MixEffect::OverlaySlot slot) noexcept {
-		m_slot = slot;
-	}
-
-	MixEffect::OverlaySlot getSlot() const noexcept {
-		return m_slot;
-	}
-
-
-	void setCallback(Callback cbk) {
-		m_callback = std::move(cbk);
-	}
-
-	const Callback& getCallback() const noexcept {
-		return m_callback;
-	}
-
-
-	void operator()(Zuazo::ZuazoBase& base, 
-					const Message& request,
-					size_t level,
-					Message& response ) const
-	{
-		const auto& tokens = request.getPayload();
-
-		if(tokens.size() > level) {
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			//Obtain the index of the keyer
-			size_t index = mixEffect.getOverlayCount(getSlot());
-			fromString(tokens[level], index);
-			if(index < mixEffect.getOverlayCount(getSlot())) {
-				//Success! this keyer exists
-				auto& keyer = mixEffect.getOverlay(getSlot(), index);
-				Utils::invokeIf(getCallback(), keyer, request, level + 1, response);
-			}
-		}
-	}
-
-private:
-	MixEffect::OverlaySlot	m_slot;
-	Callback				m_callback;
-
-};
-
-
-
-
-
-static void setInputCount(	Zuazo::ZuazoBase& base, 
+static void setInputCount(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeSetter(
 		&MixEffect::setInputCount,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getInputCount(	Zuazo::ZuazoBase& base, 
+static void getInputCount(	Controller& controller,
+							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response ) 
 {
 	invokeGetter(
 		&MixEffect::getInputCount,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void setProgram(	Zuazo::ZuazoBase& base, 
+
+
+static void setBackground(	Controller&,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OutputBus bus )
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 1) {
+		const auto& indexStr = tokens[level];
+
+		//Try to parse the index
+		size_t index;
+		if(fromString(indexStr, index)) {
+			//Check validity of the index
+			assert(typeid(base) == typeid(MixEffect));
+			auto& mixEffect = static_cast<MixEffect&>(base);
+
+			if(index < mixEffect.getInputCount()) {
+				//Perform changes
+				mixEffect.setBackground(bus, index);
+
+				//Elaborate the response
+				response.setType(Message::Type::broadcast);
+				response.getPayload() = tokens;
+			}
+		}
+	}
+}
+
+static void getBackground(	Controller&,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OutputBus bus )
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level) {
+		assert(typeid(base) == typeid(MixEffect));
+		const auto& mixEffect = static_cast<const MixEffect&>(base);
+
+		//Get the index of the background for this bus
+		const auto index = mixEffect.getBackground(bus);
+		
+		//Elaborate the response
+		response.setType(Message::Type::response);
+		if(index < mixEffect.getInputCount()) {
+			response.getPayload() = { std::string(toString(index)) };
+		} else {
+			response.getPayload().clear();
+		}
+	}
+}
+
+static void unsetBackground(Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OutputBus bus )
+{
+	invokeSetter<MixEffect>(
+		std::bind(&MixEffect::setBackground, std::placeholders::_1, bus, std::numeric_limits<size_t>::max()),
+		controller, base, request, level, response
+	);
+}
+
+static void setProgram(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
 {
-	invokeSetter<MixEffect, size_t>(
-		std::bind(&MixEffect::setBackground, std::placeholders::_1, MixEffect::OutputBus::program, std::placeholders::_2),
-		base, request, level, response
-	);
+	setBackground(controller, base, request, level, response, MixEffect::OutputBus::program);
 }
 
-static void getProgram(	Zuazo::ZuazoBase& base, 
+static void getProgram(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
 {
-	invokeGetter<size_t, MixEffect>(
-		std::bind(&MixEffect::getBackground, std::placeholders::_1, MixEffect::OutputBus::program),
-		base, request, level, response
-	);
+	getBackground(controller, base, request, level, response, MixEffect::OutputBus::program);
 }
 
-static void setPreview(	Zuazo::ZuazoBase& base, 
+static void unsetProgram(	Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response ) 
+{
+	unsetBackground(controller, base, request, level, response, MixEffect::OutputBus::program);
+}
+
+static void setPreview(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
 {
-	invokeSetter<MixEffect, size_t>(
-		std::bind(&MixEffect::setBackground, std::placeholders::_1, MixEffect::OutputBus::preview, std::placeholders::_2),
-		base, request, level, response
-	);
+	setBackground(controller, base, request, level, response, MixEffect::OutputBus::preview);
 }
 
-static void getPreview(	Zuazo::ZuazoBase& base, 
+static void getPreview(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
 {
-	invokeGetter<size_t, MixEffect>(
-		std::bind(&MixEffect::getBackground, std::placeholders::_1, MixEffect::OutputBus::preview),
-		base, request, level, response
-	);
+	getBackground(controller, base, request, level, response, MixEffect::OutputBus::preview);
+}
+
+static void unsetPreview(	Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response ) 
+{
+	unsetBackground(controller, base, request, level, response, MixEffect::OutputBus::preview);
 }
 
 
-static void cut(Zuazo::ZuazoBase& base, 
+static void cut(Controller& controller,
+				ZuazoBase& base,
 				const Message& request,
 				size_t level,
 				Message& response ) 
 {
 	invokeSetter(
 		&MixEffect::cut,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void transition(	Zuazo::ZuazoBase& base, 
+static void transition(	Controller& controller,
+						ZuazoBase& base,
 						const Message& request,
 						size_t level,
 						Message& response ) 
 {
 	invokeSetter(
 		&MixEffect::transition,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void setTransitionBar(	Zuazo::ZuazoBase& base, 
+static void setTransitionBar(	Controller& controller,
+								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response ) 
 {
 	invokeSetter(
 		&MixEffect::setTransitionBar,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getTransitionBar(	Zuazo::ZuazoBase& base, 
+static void getTransitionBar(	Controller& controller,
+								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response ) 
 {
 	invokeGetter(
 		&MixEffect::getTransitionBar,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void setTransitionPreview(	Zuazo::ZuazoBase& base, 
+static void setTransitionPreview(	Controller& controller,
+									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response ) 
@@ -274,11 +225,12 @@ static void setTransitionPreview(	Zuazo::ZuazoBase& base,
 		[] (MixEffect& mixEffect, bool ena) {
 			mixEffect.setTransitionSlot(ena ? MixEffect::OutputBus::preview : MixEffect::OutputBus::program);
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getTransitionPreview(	Zuazo::ZuazoBase& base, 
+static void getTransitionPreview(	Controller& controller,
+									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response ) 
@@ -287,24 +239,26 @@ static void getTransitionPreview(	Zuazo::ZuazoBase& base,
 		[] (const MixEffect& mixEffect) -> bool{
 			return mixEffect.getTransitionSlot() == MixEffect::OutputBus::preview;
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
 
 
-static void setTransitionEffect(Zuazo::ZuazoBase& base, 
+static void setTransitionEffect(Controller& controller,
+								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response ) 
 {
 	invokeSetter(
 		&MixEffect::setSelectedTransition,
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void getTransitionEffect(Zuazo::ZuazoBase& base, 
+static void getTransitionEffect(Controller& controller,
+								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response ) 
@@ -315,14 +269,15 @@ static void getTransitionEffect(Zuazo::ZuazoBase& base,
 			const auto* trans = mixEffect.getSelectedTransition();	
 			return trans ? trans->getName() : noSelection;
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
 }
 
-static void enumTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Message& request,
-								size_t level,
-								Message& response ) 
+static void enumTransitionEffect(	Controller&,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
 {
 	const auto& tokens = request.getPayload();
 
@@ -347,77 +302,513 @@ static void enumTransitionEffect(Zuazo::ZuazoBase& base,
 	}
 }
 
-static void unsetTransitionEffect(Zuazo::ZuazoBase& base, 
-								const Message& request,
-								size_t level,
-								Message& response ) 
+static void unsetTransitionEffect(	Controller& controller,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
 {
 	invokeSetter<MixEffect>( 
 		[] (MixEffect& mixEffect) -> void {
 			mixEffect.setSelectedTransition("");
 		},
-		base, request, level, response
+		controller, base, request, level, response
 	);
+}
+
+static ZuazoBase* getTransition(ZuazoBase& base,const std::string& name) {
+	assert(typeid(base) == typeid(MixEffect));
+	auto& mixEffect = static_cast<MixEffect&>(base);
+	return mixEffect.getTransition(name);
 }
 
 
 
-static void setUpstreamOverlayCount(Zuazo::ZuazoBase& base, 
+static ZuazoBase* getOverlay(ZuazoBase& base,MixEffect::OverlaySlot slot, const std::string& indexStr) {
+	ZuazoBase* result = nullptr;	
+
+	//Try to parse the index
+	size_t index;
+	if(fromString(indexStr, index)) {
+		assert(typeid(base) == typeid(MixEffect));
+		auto& mixEffect = static_cast<MixEffect&>(base);
+
+		//Check if the index is valid
+		if(index < mixEffect.getOverlayCount(slot)) {
+			result = mixEffect.getOverlay(slot, index);
+		}
+	}
+
+	return result;
+}
+
+static ZuazoBase* getUpstreamOverlay(ZuazoBase& base,const std::string& indexStr) {
+	return getOverlay(base, MixEffect::OverlaySlot::upstream, indexStr);
+}
+
+static ZuazoBase* getDownstreamOverlay(ZuazoBase& base,const std::string& indexStr) {
+	return getOverlay(base, MixEffect::OverlaySlot::downstream, indexStr);
+}
+
+
+
+static void setOverlayCount(Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OverlaySlot slot ) 
+{
+	invokeSetter<MixEffect, size_t>(
+		std::bind(&MixEffect::setOverlayCount, std::placeholders::_1, slot, std::placeholders::_2),
+		controller, base, request, level, response
+	);
+}
+
+static void getOverlayCount(Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OverlaySlot slot ) 
+{
+	invokeGetter<size_t, MixEffect>(
+		std::bind(&MixEffect::getOverlayCount, std::placeholders::_1, slot),
+		controller, base, request, level, response
+	);
+}
+
+static void setUpstreamOverlayCount(Controller& controller,
+									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response ) 
 {
-	invokeSetter<MixEffect, size_t>(
-		std::bind(&MixEffect::setOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::upstream, std::placeholders::_2),
-		base, request, level, response
-	);
+	setOverlayCount(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
 }
 
-static void getUpstreamOverlayCount(Zuazo::ZuazoBase& base, 
+static void getUpstreamOverlayCount(Controller& controller,
+									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response ) 
 {
-	invokeGetter<size_t, MixEffect>(
-		std::bind(&MixEffect::getOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::upstream),
-		base, request, level, response
-	);
+	getOverlayCount(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
 }
 
-
-static void setDownstreamOverlayCount(	Zuazo::ZuazoBase& base, 
+static void setDownstreamOverlayCount(	Controller& controller,
+										ZuazoBase& base,
 										const Message& request,
 										size_t level,
 										Message& response ) 
 {
-	invokeSetter<MixEffect, size_t>(
-		std::bind(&MixEffect::setOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::downstream, std::placeholders::_2),
-		base, request, level, response
-	);
+	setOverlayCount(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
 }
 
-static void getDownstreamOverlayCount(	Zuazo::ZuazoBase& base, 
+static void getDownstreamOverlayCount(	Controller& controller,
+										ZuazoBase& base,
 										const Message& request,
 										size_t level,
 										Message& response ) 
 {
-	invokeGetter<size_t, MixEffect>(
-		std::bind(&MixEffect::getOverlayCount, std::placeholders::_1, MixEffect::OverlaySlot::downstream),
-		base, request, level, response
-	);
+	getOverlayCount(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+
+static void setOverlayEnabled(	Controller&,
+								ZuazoBase& base,
+								const Message& request,
+								size_t level,
+								Message& response,
+								MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 2) {
+		const auto& indexStr = tokens[level + 0];
+		const auto& enabledStr = tokens[level + 1];
+
+		//Parse the index
+		size_t index;
+		if(fromString(indexStr, index)) {
+			//Check if the index is valid
+			assert(typeid(base) == typeid(MixEffect));
+			auto& mixEffect = static_cast<MixEffect&>(base);
+
+			if(index < mixEffect.getOverlayCount(slot)) {
+				//Parse if it is enabled
+				bool visible;
+				if(fromString(enabledStr, visible)) {
+					//Write changes
+					mixEffect.setOverlayVisible(slot, index, visible);
+
+					//Elaborate the response
+					response.setType(Message::Type::broadcast);
+					response.getPayload() = tokens;
+				}
+			}
+		}
+	}
+}
+
+static void getOverlayEnabled(	Controller&,
+								ZuazoBase& base,
+								const Message& request,
+								size_t level,
+								Message& response,
+								MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 1) {
+		const auto& indexStr = tokens[level + 0];
+
+		//Parse the index
+		size_t index;
+		if(fromString(indexStr, index)) {
+			//Check if the index is valid
+			assert(typeid(base) == typeid(MixEffect));
+			const auto& mixEffect = static_cast<const MixEffect&>(base);
+
+			if(index < mixEffect.getOverlayCount(slot)) {
+				//Get the data
+				const bool visible = mixEffect.getOverlayVisible(slot, index);
+
+				//Elaborate the response
+				response.setType(Message::Type::response);
+				response.getPayload() = { std::string(toString(visible)) };
+			}
+		}
+	}
+}
+
+static void setUpstreamOverlayEnabled(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response) 
+{
+	setOverlayEnabled(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void getUpstreamOverlayEnabled(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	getOverlayEnabled(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void setDownstreamOverlayEnabled(Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response) 
+{
+	setOverlayEnabled(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+static void getDownstreamOverlayEnabled(Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	getOverlayEnabled(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+
+static void setOverlayTransition(	Controller&,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response,
+									MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 2) {
+		const auto& indexStr = tokens[level + 0];
+		const auto& enabledStr = tokens[level + 1];
+
+		//Parse the index
+		size_t index;
+		if(fromString(indexStr, index)) {
+			//Check if the index is valid
+			assert(typeid(base) == typeid(MixEffect));
+			auto& mixEffect = static_cast<MixEffect&>(base);
+
+			if(index < mixEffect.getOverlayCount(slot)) {
+				//Parse if it is enabled
+				bool transition;
+				if(fromString(enabledStr, transition)) {
+					//Write changes
+					mixEffect.setOverlayTransition(slot, index, transition);
+
+					//Elaborate the response
+					response.setType(Message::Type::broadcast);
+					response.getPayload() = tokens;
+				}
+			}
+		}
+	}
+}
+
+static void getOverlayTransition(	Controller&,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response,
+									MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 1) {
+		const auto& indexStr = tokens[level + 0];
+
+		//Parse the index
+		size_t index;
+		if(fromString(indexStr, index)) {
+			//Check if the index is valid
+			assert(typeid(base) == typeid(MixEffect));
+			const auto& mixEffect = static_cast<const MixEffect&>(base);
+
+			if(index < mixEffect.getOverlayCount(slot)) {
+				//Get the data
+				const bool transition = mixEffect.getOverlayTransition(slot, index);
+
+				//Elaborate the response
+				response.setType(Message::Type::response);
+				response.getPayload() = { std::string(toString(transition)) };
+			}
+		}
+	}
+}
+
+static void setUpstreamOverlayTransition(	Controller& controller,
+											ZuazoBase& base,
+											const Message& request,
+											size_t level,
+											Message& response) 
+{
+	setOverlayTransition(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void getUpstreamOverlayTransition(	Controller& controller,
+											ZuazoBase& base,
+											const Message& request,
+											size_t level,
+											Message& response ) 
+{
+	getOverlayTransition(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void setDownstreamOverlayTransition(	Controller& controller,
+											ZuazoBase& base,
+											const Message& request,
+											size_t level,
+											Message& response) 
+{
+	setOverlayTransition(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+static void getDownstreamOverlayTransition(	Controller& controller,
+											ZuazoBase& base,
+											const Message& request,
+											size_t level,
+											Message& response ) 
+{
+	getOverlayTransition(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+
+static void setOverlayFeed(	Controller&,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 3) {
+		const auto& overlayIndexStr = tokens[level+0];
+		const auto& portName = tokens[level+1];
+		const auto& inputIndexStr = tokens[level+2];
+
+		//Try to parse the overlay index
+		size_t overlayIndex;
+		if(fromString(overlayIndexStr, overlayIndex)) {
+			//Check validity of the overlay index
+			assert(typeid(base) == typeid(MixEffect));
+			auto& mixEffect = static_cast<MixEffect&>(base);
+
+			if(overlayIndex < mixEffect.getOverlayCount(slot)) {
+				const auto* overlay = mixEffect.getOverlay(slot, overlayIndex);
+
+				if(overlay) {
+					//Obtain the input port
+					const auto* port = overlay->getPad<Signal::Input<Video>>(portName);
+
+					if(port) {
+						//Try to parse the signal index
+						size_t inputIndex;
+						if(fromString(inputIndexStr, inputIndex)) {
+							if(inputIndex < mixEffect.getInputCount()) {
+								//Perform changes
+								mixEffect.setOverlaySignal(slot, overlayIndex, portName, inputIndex);
+
+								//Elaborate the response
+								response.setType(Message::Type::broadcast);
+								response.getPayload() = tokens;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static void getOverlayFeed(	Controller&,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response,
+							MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 2) {
+		const auto& overlayIndexStr = tokens[level+0];
+		const auto& portName = tokens[level+1];
+
+		//Try to parse the overlay index
+		size_t overlayIndex;
+		if(fromString(overlayIndexStr, overlayIndex)) {
+			//Check validity of the overlay index
+			assert(typeid(base) == typeid(MixEffect));
+			const auto& mixEffect = static_cast<const MixEffect&>(base);
+
+			if(overlayIndex < mixEffect.getOverlayCount(slot)) {
+				const auto* overlay = mixEffect.getOverlay(slot, overlayIndex);
+
+				if(overlay) {
+					//Obtain the input port
+					const auto* port = overlay->getPad<Signal::Input<Video>>(portName);
+
+					if(port) {
+						//Query the signal index
+						const auto signalIndex = mixEffect.getOverlaySignal(slot, overlayIndex, portName);
+
+						//Elaborate the response
+						response.setType(Message::Type::response);
+						if(signalIndex < mixEffect.getInputCount()) {
+							response.getPayload() = { std::string(toString(signalIndex)) };
+						} else {
+							response.getPayload().clear();
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static void unsetOverlayFeed(	Controller&,
+								ZuazoBase& base,
+								const Message& request,
+								size_t level,
+								Message& response,
+								MixEffect::OverlaySlot slot ) 
+{
+	const auto& tokens = request.getPayload();
+	if(tokens.size() == level + 2) {
+		const auto& overlayIndexStr = tokens[level+0];
+		const auto& portName = tokens[level+1];
+
+		//Try to parse the overlay index
+		size_t overlayIndex;
+		if(fromString(overlayIndexStr, overlayIndex)) {
+			//Check validity of the overlay index
+			assert(typeid(base) == typeid(MixEffect));
+			auto& mixEffect = static_cast<MixEffect&>(base);
+
+			if(overlayIndex < mixEffect.getOverlayCount(slot)) {
+				const auto* overlay = mixEffect.getOverlay(slot, overlayIndex);
+
+				if(overlay) {
+					//Obtain the input port
+					const auto* port = overlay->getPad<Signal::Input<Video>>(portName);
+
+					if(port) {
+						//Perform changes
+						mixEffect.setOverlaySignal(slot, overlayIndex, portName, std::numeric_limits<size_t>::max());
+
+						//Elaborate the response
+						response.setType(Message::Type::broadcast);
+						response.getPayload() = tokens;
+					}
+				}
+			}
+		}
+	}
+}
+
+static void setUpstreamOverlayFeed(	Controller& controller,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
+{
+	setOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void getUpstreamOverlayFeed(	Controller& controller,
+									ZuazoBase& base,
+									const Message& request,
+									size_t level,
+									Message& response ) 
+{
+	getOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void unsetUpstreamOverlayFeed(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	unsetOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::upstream);
+}
+
+static void setDownstreamOverlayFeed(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	setOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+static void getDownstreamOverlayFeed(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	getOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
+}
+
+static void unsetDownstreamOverlayFeed(	Controller& controller,
+										ZuazoBase& base,
+										const Message& request,
+										size_t level,
+										Message& response ) 
+{
+	unsetOverlayFeed(controller, base, request, level, response, MixEffect::OverlaySlot::downstream);
 }
 
 
 
 
 
-void MixEffect::registerCommands(Node& node) {
-	//Get transition related nodes
-	Node mixTransitionNode;
-	Transitions::Mix::registerCommands(mixTransitionNode);
-	Node dveTransitionNode;
-	Transitions::DVE::registerCommands(dveTransitionNode);
-	
+void MixEffect::registerCommands(Control::Controller& controller) {
 	//Configure the transition node
 	auto transitionEffectNode = makeAttributeNode(	
 		Cenital::setTransitionEffect, 
@@ -426,52 +817,61 @@ void MixEffect::registerCommands(Node& node) {
 		Cenital::unsetTransitionEffect
 	);
 	transitionEffectNode.addPath(
-		"config",
-		TransitionEffectConfigNode({
-			{ typeid(Transitions::Mix), std::move(mixTransitionNode) },
-			{ typeid(Transitions::DVE), std::move(dveTransitionNode) },
-		})
+		"config", ElementNode(Cenital::getTransition)
 	);
 
-
-	//Get the keyer related node
-	Node keyerNode({
-		{ "visible",		{} }, //TODO
-		{ "transition",		{} }, //TODO
-		{ "key",			{} }, //TODO
-		{ "fill",			{} }, //TODO
-	});
-	Keyer::registerCommands(keyerNode);
-
-
 	//Configure the overlay nodes
-	OverlayNode upstreamOverlayNode(MixEffect::OverlaySlot::upstream, keyerNode);
-	OverlayNode downstreamOverlayNode(MixEffect::OverlaySlot::downstream, std::move(keyerNode));
+	Node upstreamOverlayNode({
+		{ "config",					ElementNode(Cenital::getUpstreamOverlay) }
+	});
+	Node downstreamOverlayNode({
+		{ "config",					ElementNode(Cenital::getDownstreamOverlay) }
+	});
 
 	Node configNode({
-		{ "input:count",		makeAttributeNode(	Cenital::setInputCount, 
-													Cenital::getInputCount) },
+		{ "input:count",			makeAttributeNode(	Cenital::setInputCount, 
+														Cenital::getInputCount) },
 
-		{ "pgm",				makeAttributeNode(	Cenital::setProgram, 
-													Cenital::getProgram) },
-		{ "pvw",				makeAttributeNode(	Cenital::setPreview, 
-													Cenital::getPreview) },
+		{ "pgm",					makeAttributeNode(	Cenital::setProgram, 
+														Cenital::getProgram,
+														{},
+														Cenital::unsetProgram) },
+		{ "pvw",					makeAttributeNode(	Cenital::setPreview, 
+														Cenital::getPreview,
+														{},
+														Cenital::unsetPreview) },
 
-		{ "cut",				Cenital::cut },
-		{ "transition", 		Cenital::transition },
-		{ "transition:bar",		makeAttributeNode(	Cenital::setTransitionBar, 
-													Cenital::getTransitionBar) },
+		{ "cut",					Cenital::cut },
+		{ "transition", 			Cenital::transition },
+		{ "transition:bar",			makeAttributeNode(	Cenital::setTransitionBar, 
+														Cenital::getTransitionBar) },
 
-		{ "transition:pvw",		makeAttributeNode(	Cenital::setTransitionPreview, 
-													Cenital::getTransitionPreview) },
-		{ "transition:effect",	std::move(transitionEffectNode) },
+		{ "transition:pvw",			makeAttributeNode(	Cenital::setTransitionPreview, 
+														Cenital::getTransitionPreview) },
+		{ "transition:effect",		std::move(transitionEffectNode) },
 
-		{ "us-overlay",			std::move(upstreamOverlayNode) },
-		{ "us-overlay:count",	makeAttributeNode(	Cenital::setUpstreamOverlayCount, 
-													Cenital::getUpstreamOverlayCount) },
-		{ "ds-overlay",			std::move(downstreamOverlayNode) },
-		{ "ds-overlay:count",	makeAttributeNode(	Cenital::setDownstreamOverlayCount, 
-													Cenital::getDownstreamOverlayCount) },
+		{ "us-overlay",				std::move(upstreamOverlayNode) },
+		{ "ds-overlay",				std::move(downstreamOverlayNode) },
+		{ "us-overlay:count",		makeAttributeNode(	Cenital::setUpstreamOverlayCount, 
+														Cenital::getUpstreamOverlayCount) },
+		{ "ds-overlay:count",		makeAttributeNode(	Cenital::setDownstreamOverlayCount, 
+														Cenital::getDownstreamOverlayCount) },
+		{ "us-overlay:ena",			makeAttributeNode(	Cenital::setUpstreamOverlayEnabled, 
+														Cenital::getUpstreamOverlayEnabled ) },
+		{ "ds-overlay:ena",			makeAttributeNode(	Cenital::setDownstreamOverlayEnabled, 
+														Cenital::getDownstreamOverlayEnabled ) },
+		{ "us-overlay:transition",	makeAttributeNode(	Cenital::setUpstreamOverlayTransition, 
+														Cenital::getUpstreamOverlayTransition ) },
+		{ "ds-overlay:transition",	makeAttributeNode(	Cenital::setDownstreamOverlayTransition, 
+														Cenital::getDownstreamOverlayTransition ) },
+		{ "us-overlay:feed",		makeAttributeNode(	Cenital::setUpstreamOverlayFeed, 
+														Cenital::getUpstreamOverlayFeed,
+														{},
+														Cenital::unsetUpstreamOverlayFeed ) },
+		{ "ds-overlay:feed",		makeAttributeNode(	Cenital::setDownstreamOverlayFeed, 
+														Cenital::getDownstreamOverlayFeed,
+														{},
+														Cenital::unsetDownstreamOverlayFeed ) },
 
 	});
 
@@ -497,12 +897,15 @@ void MixEffect::registerCommands(Node& node) {
 		VideoScalingAttributes::filter ;
 	registerVideoScalingCommands<MixEffect>(configNode, videoScalingWr, videoScalingRd);
 
-	Mixer::registerClass(
-		node, 
-		typeid(MixEffect), 
-		"mix-effect", 
-		invokeBaseConstructor<MixEffect>,
-		std::move(configNode)
+	auto& classIndex = controller.getClassIndex();
+	classIndex.registerClass(
+		typeid(MixEffect),
+		ClassIndex::Entry(
+			"mix-effect",
+			std::move(configNode),
+			invokeBaseConstructor<MixEffect>,
+			typeid(ZuazoBase)
+		)	
 	);
 }
 

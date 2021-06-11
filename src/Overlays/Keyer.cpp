@@ -1,4 +1,4 @@
-#include <Keyer.h>
+#include <Overlays/Keyer.h>
 
 #include <Shapes.h>
 
@@ -19,7 +19,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace Cenital {
+namespace Cenital::Overlays {
 
 using namespace Zuazo;
 
@@ -1562,7 +1562,7 @@ Keyer::Keyer(	Instance& instance,
 				std::string name,
 				Math::Vec2f size )
 	: Utils::Pimpl<KeyerImpl>({}, *this, size)
-	, ZuazoBase(
+	, Base(
 		instance, 
 		std::move(name),
 		{ PadRef((*this)->keyIn), PadRef((*this)->fillIn) },
@@ -1570,8 +1570,8 @@ Keyer::Keyer(	Instance& instance,
 		std::bind(&KeyerImpl::open, std::ref(**this), std::placeholders::_1, nullptr),
 		std::bind(&KeyerImpl::asyncOpen, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::close, std::ref(**this), std::placeholders::_1, nullptr),
-		std::bind(&KeyerImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2) )
-	, LayerBase(
+		std::bind(&KeyerImpl::asyncClose, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
+		{},
 		std::bind(&KeyerImpl::transformCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::opacityCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),
 		std::bind(&KeyerImpl::blendingModeCallback, std::ref(**this), std::placeholders::_1, std::placeholders::_2),

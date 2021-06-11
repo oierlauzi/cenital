@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Control/Node.h>
+#include <Control/Controller.h>
 
 #include <zuazo/Sources/NDI.h>
 
@@ -11,7 +11,7 @@ struct NDI :
 {
 	NDI(Zuazo::Instance& instance, std::string name);
 
-	static void						registerCommands(Control::Node& node);
+	static void						registerCommands(Control::Controller& controller);
 };
 
 }

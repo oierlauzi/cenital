@@ -2,6 +2,7 @@
 
 #include <Transitions/Mix.h>
 #include <Transitions/DVE.h>
+#include <Overlays/Keyer.h>
 
 #include <zuazo/Player.h>
 #include <zuazo/Signal/DummyPad.h>
@@ -42,7 +43,7 @@ static void closeHelper(ZuazoBase& base, std::unique_lock<Instance>* lock) {
 struct MixEffectImpl {
 	class Overlay {
 	public:
-		Overlay(std::unique_ptr<Keyer> overlay = nullptr)
+		Overlay(std::unique_ptr<Overlays::Base> overlay = nullptr)
 			: m_overlay(std::move(overlay))
 			, m_state()
 		{
@@ -53,15 +54,16 @@ struct MixEffectImpl {
 		Overlay& operator=(Overlay&& other) = default;
 
 
-		void setOverlay(std::unique_ptr<Keyer> overlay) {
-			m_overlay = std::move(overlay);
+		std::unique_ptr<Overlays::Base> setOverlay(std::unique_ptr<Overlays::Base> overlay) {
+			std::swap(m_overlay, overlay);
+			return overlay;
 		}
 
-		Keyer* getOverlay() noexcept {
+		Overlays::Base* getOverlay() noexcept {
 			return m_overlay.get();
 		}
 
-		const Keyer* getOverlay() const noexcept {
+		const Overlays::Base* getOverlay() const noexcept {
 			return m_overlay.get();
 		}
 
@@ -74,15 +76,28 @@ struct MixEffectImpl {
 			return m_state[VISIBLE_BIT];
 		}
 
-		bool getVisible(MixEffect::OutputBus bus) const {
-			switch(bus) {
-			case MixEffect::OutputBus::program:
-				return getVisible();
-			case MixEffect::OutputBus::preview:
-				return getVisible() != getTransition(); //xor
-			default:
-				throw std::runtime_error("Invalid bus");
+		bool isRendered(MixEffect::OutputBus bus) const {
+			bool result = (m_overlay != nullptr);
+
+			if(result) {
+				switch(bus) {
+				case MixEffect::OutputBus::program:
+					result = getVisible();
+					break;
+
+				case MixEffect::OutputBus::preview:
+					//If visible and wont's transion
+					//or not visible and will transition,
+					//This is, XOR or inequality
+					result = getVisible() != getTransition();
+					break;
+
+				default:
+					throw std::runtime_error("Invalid bus");
+				}
 			}
+
+			return result;
 		}
 
 
@@ -102,7 +117,7 @@ struct MixEffectImpl {
 			BIT_COUNT
 		};
 
-		std::unique_ptr<Keyer>				m_overlay;
+		std::unique_ptr<Overlays::Base>		m_overlay;
 		std::bitset<BIT_COUNT>				m_state;
 
 	};
@@ -130,7 +145,7 @@ struct MixEffectImpl {
 	VideoSurface									intermediateLayer;
 
 	TransitionMap									transitions;
-	Transitions::Base*								selectedTransition;
+	TransitionMap::iterator							selectedTransition;
 	MixEffect::OutputBus							transitionSlot;
 
 	std::array<std::vector<Overlay>, OVERLAY_CNT>	overlays;
@@ -155,7 +170,7 @@ struct MixEffectImpl {
 			createBackgroundLayer(instance, name + " - Preview Layer", referenceCompositor) }
 		, intermediateLayer(createBackgroundLayer(instance, name + " - Intermediary Layer", referenceCompositor))
 		, transitions()
-		, selectedTransition(nullptr)
+		, selectedTransition(transitions.end())
 		, transitionSlot(MixEffect::OutputBus::program)
 		, overlays{}
 	{
@@ -203,13 +218,17 @@ struct MixEffectImpl {
 
 		for(auto& overlaySlot : overlays) {
 			for(auto& overlay : overlaySlot) {
-				openHelper(*overlay.getOverlay(), lock);
+				if(overlay.getOverlay()) {
+					openHelper(*overlay.getOverlay(), lock);
+				}
 			}
 		}
 
 		for(auto& transition : transitions) {
 			if(transition.second) {
-				openHelper(*transition.second, lock);
+				if(transition.second) {
+					openHelper(*transition.second, lock);
+				}
 			}
 		}
 
@@ -238,13 +257,17 @@ struct MixEffectImpl {
 
 		for(auto& overlaySlot : overlays) {
 			for(auto& overlay : overlaySlot) {
-				closeHelper(*overlay.getOverlay(), lock);
+				if(overlay.getOverlay()) {
+					closeHelper(*overlay.getOverlay(), lock);
+				}
 			}
 		}
 
 		for(auto& transition : transitions) {
 			if(transition.second) {
-				closeHelper(*transition.second, lock);
+				if(transition.second) {
+					closeHelper(*transition.second, lock);
+				}
 			}
 		}
 
@@ -257,22 +280,21 @@ struct MixEffectImpl {
 	}
 
 	void update() {
+		auto* transition = getSelectedTransition();
+
 		//Act as a player for the transition
-		if(selectedTransition) {
-			if(selectedTransition->isPlaying()) {
+		if(transition) {
+			if(transition->isPlaying()) {
 				const auto deltaTime = owner.get().getInstance().getDeltaT();
 
 				//Advance the time for the transition
-				selectedTransition->setRepeat(ClipBase::Repeat::none); //Ensure that it won't repeat
-				selectedTransition->advanceNormalSpeed(deltaTime);
+				transition->setRepeat(ClipBase::Repeat::none); //Ensure that it won't repeat
+				transition->advanceNormalSpeed(deltaTime);
 
 				//If transition has ended, cut. This will also stop and rewind the transition
-				if(selectedTransition->getTime().time_since_epoch() == selectedTransition->getDuration()) {
-					cut();
-					assert(selectedTransition->isPlaying() == false);
-					assert(selectedTransition->getTime() == Zuazo::TimePoint());
+				if(transition->getTime().time_since_epoch() == transition->getDuration()) {
+					finishTransition();
 				}
-
 			}
 		}
 
@@ -409,9 +431,11 @@ struct MixEffectImpl {
 	}
 
 	void transition() {
-		if(selectedTransition) {
+		auto* transition = getSelectedTransition();		
+
+		if(transition) {
 			//Start playing
-			selectedTransition->play();
+			transition->play();
 
 			//Configure the layers if necessary
 			if(!isTransitionConfigured()) {
@@ -425,17 +449,19 @@ struct MixEffectImpl {
 
 
 	void setTransitionBar(float progress) {
+		auto* transition = getSelectedTransition();	
+
 		if(progress >= 1.0f) {
-			//If we got to the end, cut. This will reset the transition
-			cut(); //Will call setTransitionBar(0.0f)
-		} else if(selectedTransition) {
+			//If we got to the end, reset the transition
+			finishTransition();
+		} else if(transition) {
 			//Pause if a autotransition was taking place
-			selectedTransition->pause();
+			transition->pause();
 
 			//Configure the selected transition and layers accordingly
 			if(progress > 0) {
 				//Advance the transition upto the point
-				selectedTransition->setProgress(progress);
+				transition->setProgress(progress);
 
 				//Configure the layers if necessary
 				if(!isTransitionConfigured()) {
@@ -443,7 +469,7 @@ struct MixEffectImpl {
 				}
 			} else {
 				//Rewind to the beggining
-				selectedTransition->setTime(TimePoint());
+				transition->setTime(TimePoint());
 
 				//Ensure that the layers are configured without a transition in place
 				if(isTransitionConfigured()) {
@@ -454,7 +480,8 @@ struct MixEffectImpl {
 	}
 
 	float getTransitionBar() const noexcept {
-		return selectedTransition ? selectedTransition->getProgress() : 0;
+		auto* transition = getSelectedTransition();	
+		return transition ? transition->getProgress() : 0;
 	}
 
 
@@ -494,7 +521,10 @@ struct MixEffectImpl {
 			transition->getPrevIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::program)];
 			transition->getPostIn() << intermediateCompositors[static_cast<size_t>(MixEffect::OutputBus::preview)];
 
+			//Store the reference to the transition, as rehashing might invalidate iterators
+			const auto* selected = getSelectedTransition();
 			transitions.emplace(transition->getName(), std::move(transition));
+			setSelectedTransition(selected ? transitions.find(selected->getName()) : transitions.end());
 		}
 	}
 
@@ -504,14 +534,15 @@ struct MixEffectImpl {
 		//Find the element to be deleted
 		const auto ite = transitions.find(name);
 		if(ite != transitions.cend()) {
+			//If it is selected, unselect it
+			if(ite == selectedTransition) {
+				setSelectedTransition(transitions.end());
+			}
+
 			//Before destroying save the object
 			result = std::move(ite->second);
-			transitions.erase(ite);
-		}
 
-		//If it is selected, unselect it
-		if(getSelectedTransition() == result.get()) {
-			setSelectedTransition("");
+			transitions.erase(ite);
 		}
 
 		return result;		
@@ -537,14 +568,16 @@ struct MixEffectImpl {
 		return ite != transitions.cend() ? ite->second.get() : nullptr;
 	}
 
-	void setSelectedTransition(std::string_view name) {
+
+	void setSelectedTransition(TransitionMap::iterator ite) {
 		//Ensure the previous transition is not playing
-		if(selectedTransition) {
-			selectedTransition->stop();
+		auto* transition = getSelectedTransition();
+		if(transition) {
+			transition->stop();
 		}
 
 		//Select the new one
-		selectedTransition = getTransition(name);
+		selectedTransition = ite;
 
 		//If transition is enabled, configure the new one
 		if(isTransitionConfigured()) {
@@ -552,8 +585,12 @@ struct MixEffectImpl {
 		}
 	}
 
+	void setSelectedTransition(std::string_view name) {
+		setSelectedTransition(transitions.find(name));
+	}
+
 	Transitions::Base* getSelectedTransition() const noexcept {
-		return selectedTransition;
+		return (selectedTransition != transitions.end()) ? selectedTransition->second.get() : nullptr;
 	}
 
 
@@ -575,7 +612,7 @@ struct MixEffectImpl {
 		selection.reserve(count);
 		while(selection.size() < count) {
 			selection.emplace_back(
-				Utils::makeUnique<Keyer>(
+				Utils::makeUnique<Overlays::Keyer>(
 					me.getInstance(),
 					std::string(namePrefix) + toString(selection.size()),
 					referenceCompositor.getViewportSize()
@@ -598,12 +635,18 @@ struct MixEffectImpl {
 		return overlays.at(static_cast<size_t>(slot)).size();
 	}
 
-	Keyer& getOverlay(MixEffect::OverlaySlot slot, size_t idx) {
-		return *findOverlay(slot, idx).getOverlay();
+	std::unique_ptr<Overlays::Base> setOverlay(MixEffect::OverlaySlot slot, size_t idx, std::unique_ptr<Overlays::Base> overlay) {
+		auto result = findOverlay(slot, idx).setOverlay(std::move(overlay));
+		configureLayers(isTransitionConfigured());
+		return result;
 	}
 
-	const Keyer& getOverlay(MixEffect::OverlaySlot slot, size_t idx) const {
-		return *findOverlay(slot, idx).getOverlay();
+	Overlays::Base* getOverlay(MixEffect::OverlaySlot slot, size_t idx) {
+		return findOverlay(slot, idx).getOverlay();
+	}
+
+	const Overlays::Base* getOverlay(MixEffect::OverlaySlot slot, size_t idx) const {
+		return findOverlay(slot, idx).getOverlay();
 	}
 
 	void setOverlayVisible(MixEffect::OverlaySlot slot, size_t idx, bool visible) {
@@ -625,11 +668,11 @@ struct MixEffectImpl {
 	}
 
 	void setOverlaySignal(MixEffect::OverlaySlot slot, size_t overlay, std::string_view port, size_t idx) {
-		setSource(Signal::getInput<Video>(getOverlay(slot, overlay), port), idx);
+		setSource(Signal::getInput<Video>(*getOverlay(slot, overlay), port), idx);
 	}
 
 	size_t getOverlaySignal(MixEffect::OverlaySlot slot, size_t overlay, std::string_view port) const noexcept {
-		return getSource(Signal::getInput<Video>(getOverlay(slot, overlay), port));
+		return getSource(Signal::getInput<Video>(*getOverlay(slot, overlay), port));
 	}
 
 
@@ -682,8 +725,9 @@ private:
 
 	void configureLayers(bool useTransition) {
 		std::vector<RendererBase::LayerRef> layers;
+		auto* transition = getSelectedTransition();
 
-		if(selectedTransition && useTransition) {
+		if(transition && useTransition) {
 			//A transition is in progress. Configure USK and DSK separately
 			for(size_t i = 0; i < OUTPUT_BUS_CNT; ++i) {
 				const auto outputBus = static_cast<MixEffect::OutputBus>(i);
@@ -692,7 +736,7 @@ private:
 				layers = { backgroundLayers[i] };
 
 				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::upstream)]) {
-					if(overlay.getVisible(outputBus)) {
+					if(overlay.isRendered(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
 				}
@@ -702,7 +746,7 @@ private:
 				//Obtain the downstream layers
 				if(outputBus == transitionSlot) {
 					//Transition is active on this bus
-					const auto transitionLayers = selectedTransition->getLayers();
+					const auto transitionLayers = transition->getLayers();
 					layers.clear();
 					layers.insert(layers.cend(), transitionLayers.cbegin(), transitionLayers.cend());
 				} else {
@@ -712,7 +756,7 @@ private:
 				}
 
 				for(auto& overlay : overlays[static_cast<size_t>(MixEffect::OverlaySlot::downstream)]) {
-					if(overlay.getVisible(outputBus)) {
+					if(overlay.isRendered(outputBus)) {
 						layers.emplace_back(*overlay.getOverlay());
 					}
 				}
@@ -730,7 +774,7 @@ private:
 				
 				for(auto& overlaySlot : overlays) {
 					for(auto& overlay : overlaySlot) {
-						if(overlay.getVisible(outputBus)) {
+						if(overlay.isRendered(outputBus)) {
 							layers.emplace_back(*overlay.getOverlay());
 						}
 					}
@@ -743,6 +787,22 @@ private:
 			//Signal that the intermediate compositing is not used
 			intermediateLayer.getInput() << Signal::noSignal;
 		}
+	}
+
+	void finishTransition() {
+		auto* transition = getSelectedTransition();
+
+		if(transitionSlot == MixEffect::OutputBus::program) {
+			//As the transition is in program, cut between sources.
+			//This will rewind and stop it
+			cut();
+		} else if(transition) {
+			//Reset the transition
+			setTransitionBar(0.0f);
+		}
+
+		assert(transition->isPlaying() == false);
+		assert(transition->getTime() == Zuazo::TimePoint());
 	}
 
 
@@ -944,11 +1004,11 @@ size_t MixEffect::getOverlayCount(OverlaySlot slot) const {
 	return (*this)->getOverlayCount(slot);
 }
 
-Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) {
+Overlays::Base* MixEffect::getOverlay(OverlaySlot slot, size_t idx) {
 	return (*this)->getOverlay(slot, idx);
 }
 
-const Keyer& MixEffect::getOverlay(OverlaySlot slot, size_t idx) const {
+const Overlays::Base* MixEffect::getOverlay(OverlaySlot slot, size_t idx) const {
 	return (*this)->getOverlay(slot, idx);
 }
 

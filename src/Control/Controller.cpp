@@ -11,10 +11,12 @@ using namespace Zuazo;
 
 Controller::Controller(Zuazo::ZuazoBase& base)
 	: m_root()
+	, m_classIndex()
 	, m_views()
 	, m_baseObject(base)
 {
 }
+
 
 Node& Controller::getRootNode() noexcept {
 	return m_root;
@@ -25,11 +27,20 @@ const Node& Controller::getRootNode() const noexcept {
 }
 
 
+ClassIndex& Controller::getClassIndex() noexcept {
+	return m_classIndex;
+}
+
+const ClassIndex& Controller::getClassIndex() const noexcept {
+	return m_classIndex;
+}
+
+
 void Controller::process(	const Message& request,
 							Message& response ) 
 {
 	std::lock_guard<Instance> lock(m_baseObject.get().getInstance());
-	m_root(m_baseObject, request, 0, response);
+	m_root(*this, m_baseObject, request, 0, response);
 
 	if(response.getType() == Message::Type::broadcast) {
 		//Send it to all the listeners
