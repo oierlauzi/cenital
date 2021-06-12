@@ -119,6 +119,35 @@ static void getClipSpeed(	Controller& controller,
 }
 
 
+static void setClipTime(Controller& controller,
+						ZuazoBase& base,
+						const Message& request,
+						size_t level,
+						Message& response ) 
+{
+	invokeSetter<MediaPlayer::Clip, Duration>(
+		[] (MediaPlayer::Clip& clip, Duration dur) {
+			clip.setTime(TimePoint(dur));
+		},
+		controller, base, request, level, response
+	);
+}
+
+static void getClipTime(Controller& controller,
+						ZuazoBase& base,
+						const Message& request,
+						size_t level,
+						Message& response ) 
+{
+	invokeGetter<Duration, MediaPlayer::Clip>(
+		[] (MediaPlayer::Clip& clip) -> Duration {
+			return clip.getTime().time_since_epoch();
+		},
+		controller, base, request, level, response
+	);
+}
+
+
 
 
 
@@ -270,6 +299,8 @@ void MediaPlayer::registerCommands(Controller& controller) {
 										unsetClipRepeat )},
 		{ "speed", 	makeAttributeNode(	setClipSpeed,
 										getClipSpeed )},
+		{ "time", 	makeAttributeNode(	setClipTime,
+										getClipTime )},
 
 	});
 

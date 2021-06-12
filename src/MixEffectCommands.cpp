@@ -44,34 +44,20 @@ static void getInputCount(	Controller& controller,
 
 
 
-static void setBackground(	Controller&,
+static void setBackground(	Controller& controller,
 							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response,
 							MixEffect::OutputBus bus )
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 1) {
-		const auto& indexStr = tokens[level];
-
-		//Try to parse the index
-		size_t index;
-		if(fromString(indexStr, index)) {
-			//Check validity of the index
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			if(index < mixEffect.getInputCount()) {
-				//Perform changes
-				mixEffect.setBackground(bus, index);
-
-				//Elaborate the response
-				response.setType(Message::Type::broadcast);
-				response.getPayload() = tokens;
-			}
-		}
-	}
+	invokeSetter<MixEffect, size_t>(
+		std::bind(&MixEffect::setBackground, std::placeholders::_1, bus, std::placeholders::_2),
+		[bus] (const MixEffect& mixEffect, size_t index) -> bool {
+			return index < mixEffect.getInputCount();
+		},
+		controller, base, request, level, response
+	);
 }
 
 static void getBackground(	Controller&,
@@ -276,8 +262,27 @@ static void setTransitionEffect(Controller& controller,
 								size_t level,
 								Message& response ) 
 {
-	invokeSetter(
-		&MixEffect::setSelectedTransition,
+	invokeSetter<MixEffect, std::string_view>(
+		std::bind(&MixEffect::setSelectedTransition, std::placeholders::_1, std::placeholders::_2),
+		[] (const MixEffect& mixEffect, std::string_view name) -> bool {
+			//List all the available transitions
+			const auto transitions = mixEffect.getTransitions();
+
+			//Try to find the requested one
+			const auto ite = std::find_if(
+				transitions.cbegin(), transitions.cend(),
+				[name] (const auto* transition) -> bool {
+					bool result = false;
+
+					if(transition) {
+						result = transition->getName() == name;
+					}
+
+					return result;
+				}
+			);
+			return ite != transitions.cend();
+		},
 		controller, base, request, level, response
 	);
 }
@@ -440,69 +445,36 @@ static void getDownstreamOverlayCount(	Controller& controller,
 }
 
 
-static void setOverlayEnabled(	Controller&,
+static void setOverlayEnabled(	Controller& controller,
 								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response,
 								MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 2) {
-		const auto& indexStr = tokens[level + 0];
-		const auto& enabledStr = tokens[level + 1];
-
-		//Parse the index
-		size_t index;
-		if(fromString(indexStr, index)) {
-			//Check if the index is valid
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			if(index < mixEffect.getOverlayCount(slot)) {
-				//Parse if it is enabled
-				bool visible;
-				if(fromString(enabledStr, visible)) {
-					//Write changes
-					mixEffect.setOverlayVisible(slot, index, visible);
-
-					//Elaborate the response
-					response.setType(Message::Type::broadcast);
-					response.getPayload() = tokens;
-				}
-			}
-		}
-	}
+	invokeSetter<MixEffect, size_t, bool>(
+		std::bind(&MixEffect::setOverlayVisible, std::placeholders::_1, slot, std::placeholders::_2, std::placeholders::_3),
+		[slot] (const MixEffect& mixEffect, size_t index, bool) -> bool {
+			return index < mixEffect.getOverlayCount(slot);
+		},
+		controller, base, request, level, response
+	);
 }
 
-static void getOverlayEnabled(	Controller&,
+static void getOverlayEnabled(	Controller& controller,
 								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response,
 								MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 1) {
-		const auto& indexStr = tokens[level + 0];
-
-		//Parse the index
-		size_t index;
-		if(fromString(indexStr, index)) {
-			//Check if the index is valid
-			assert(typeid(base) == typeid(MixEffect));
-			const auto& mixEffect = static_cast<const MixEffect&>(base);
-
-			if(index < mixEffect.getOverlayCount(slot)) {
-				//Get the data
-				const bool visible = mixEffect.getOverlayVisible(slot, index);
-
-				//Elaborate the response
-				response.setType(Message::Type::response);
-				response.getPayload() = { std::string(toString(visible)) };
-			}
-		}
-	}
+	invokeGetter<bool, MixEffect, size_t>(
+		std::bind(&MixEffect::getOverlayVisible, std::placeholders::_1, slot, std::placeholders::_2),
+		[slot] (const MixEffect& mixEffect, size_t index) -> bool {
+			return index < mixEffect.getOverlayCount(slot);
+		},
+		controller, base, request, level, response
+	);
 }
 
 static void setUpstreamOverlayEnabled(	Controller& controller,
@@ -542,69 +514,36 @@ static void getDownstreamOverlayEnabled(Controller& controller,
 }
 
 
-static void setOverlayTransition(	Controller&,
+static void setOverlayTransition(	Controller& controller,
 									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response,
 									MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 2) {
-		const auto& indexStr = tokens[level + 0];
-		const auto& enabledStr = tokens[level + 1];
-
-		//Parse the index
-		size_t index;
-		if(fromString(indexStr, index)) {
-			//Check if the index is valid
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			if(index < mixEffect.getOverlayCount(slot)) {
-				//Parse if it is enabled
-				bool transition;
-				if(fromString(enabledStr, transition)) {
-					//Write changes
-					mixEffect.setOverlayTransition(slot, index, transition);
-
-					//Elaborate the response
-					response.setType(Message::Type::broadcast);
-					response.getPayload() = tokens;
-				}
-			}
-		}
-	}
+	invokeSetter<MixEffect, size_t, bool>(
+		std::bind(&MixEffect::setOverlayTransition, std::placeholders::_1, slot, std::placeholders::_2, std::placeholders::_3),
+		[slot] (const MixEffect& mixEffect, size_t index, bool) -> bool {
+			return index < mixEffect.getOverlayCount(slot);
+		},
+		controller, base, request, level, response
+	);
 }
 
-static void getOverlayTransition(	Controller&,
+static void getOverlayTransition(	Controller& controller,
 									ZuazoBase& base,
 									const Message& request,
 									size_t level,
 									Message& response,
 									MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 1) {
-		const auto& indexStr = tokens[level + 0];
-
-		//Parse the index
-		size_t index;
-		if(fromString(indexStr, index)) {
-			//Check if the index is valid
-			assert(typeid(base) == typeid(MixEffect));
-			const auto& mixEffect = static_cast<const MixEffect&>(base);
-
-			if(index < mixEffect.getOverlayCount(slot)) {
-				//Get the data
-				const bool transition = mixEffect.getOverlayTransition(slot, index);
-
-				//Elaborate the response
-				response.setType(Message::Type::response);
-				response.getPayload() = { std::string(toString(transition)) };
-			}
-		}
-	}
+	invokeGetter<bool, MixEffect, size_t>(
+		std::bind(&MixEffect::getOverlayTransition, std::placeholders::_1, slot, std::placeholders::_2),
+		[slot] (const MixEffect& mixEffect, size_t index) -> bool {
+			return index < mixEffect.getOverlayCount(slot);
+		},
+		controller, base, request, level, response
+	);
 }
 
 static void setUpstreamOverlayTransition(	Controller& controller,
@@ -644,51 +583,34 @@ static void getDownstreamOverlayTransition(	Controller& controller,
 }
 
 
-static void setOverlayFeed(	Controller&,
+static void setOverlayFeed(	Controller& controller,
 							ZuazoBase& base,
 							const Message& request,
 							size_t level,
 							Message& response,
 							MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 3) {
-		const auto& overlayIndexStr = tokens[level+0];
-		const auto& portName = tokens[level+1];
-		const auto& inputIndexStr = tokens[level+2];
+	invokeSetter<MixEffect, size_t, std::string_view, size_t>(
+		std::bind(&MixEffect::setOverlaySignal, std::placeholders::_1, slot, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+		[slot] (const MixEffect& mixEffect, size_t index, std::string_view portName, size_t signal) -> bool {
+			bool result = false;
 
-		//Try to parse the overlay index
-		size_t overlayIndex;
-		if(fromString(overlayIndexStr, overlayIndex)) {
-			//Check validity of the overlay index
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			if(overlayIndex < mixEffect.getOverlayCount(slot)) {
-				const auto* overlay = mixEffect.getOverlay(slot, overlayIndex);
-
+			//Check if the overlay and its port exists
+			if(index < mixEffect.getOverlayCount(slot)) {
+				const auto* overlay = mixEffect.getOverlay(slot, index);
 				if(overlay) {
-					//Obtain the input port
 					const auto* port = overlay->getPad<Signal::Input<Video>>(portName);
-
-					if(port) {
-						//Try to parse the signal index
-						size_t inputIndex;
-						if(fromString(inputIndexStr, inputIndex)) {
-							if(inputIndex < mixEffect.getInputCount()) {
-								//Perform changes
-								mixEffect.setOverlaySignal(slot, overlayIndex, portName, inputIndex);
-
-								//Elaborate the response
-								response.setType(Message::Type::broadcast);
-								response.getPayload() = tokens;
-							}
-						}
-					}
+					result = port != nullptr;
 				}
 			}
-		}
-	}
+
+			//Check if the signal is valid
+			result = result && (signal < mixEffect.getInputCount());
+
+			return result;
+		},
+		controller, base, request, level, response
+	);
 }
 
 static void getOverlayFeed(	Controller&,
@@ -735,44 +657,31 @@ static void getOverlayFeed(	Controller&,
 	}
 }
 
-static void unsetOverlayFeed(	Controller&,
+static void unsetOverlayFeed(	Controller& controller,
 								ZuazoBase& base,
 								const Message& request,
 								size_t level,
 								Message& response,
 								MixEffect::OverlaySlot slot ) 
 {
-	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 2) {
-		const auto& overlayIndexStr = tokens[level+0];
-		const auto& portName = tokens[level+1];
+	invokeSetter<MixEffect, size_t, std::string_view>(
+		std::bind(&MixEffect::setOverlaySignal, std::placeholders::_1, slot, std::placeholders::_2, std::placeholders::_3, std::numeric_limits<size_t>::max()),
+		[slot] (const MixEffect& mixEffect, size_t index, std::string_view portName) -> bool {
+			bool result = false;
 
-		//Try to parse the overlay index
-		size_t overlayIndex;
-		if(fromString(overlayIndexStr, overlayIndex)) {
-			//Check validity of the overlay index
-			assert(typeid(base) == typeid(MixEffect));
-			auto& mixEffect = static_cast<MixEffect&>(base);
-
-			if(overlayIndex < mixEffect.getOverlayCount(slot)) {
-				const auto* overlay = mixEffect.getOverlay(slot, overlayIndex);
-
+			//Check if the overlay and its port exists
+			if(index < mixEffect.getOverlayCount(slot)) {
+				const auto* overlay = mixEffect.getOverlay(slot, index);
 				if(overlay) {
-					//Obtain the input port
 					const auto* port = overlay->getPad<Signal::Input<Video>>(portName);
-
-					if(port) {
-						//Perform changes
-						mixEffect.setOverlaySignal(slot, overlayIndex, portName, std::numeric_limits<size_t>::max());
-
-						//Elaborate the response
-						response.setType(Message::Type::broadcast);
-						response.getPayload() = tokens;
-					}
+					result = port != nullptr;
 				}
 			}
-		}
-	}
+
+			return result;
+		},
+		controller, base, request, level, response
+	);
 }
 
 static void setUpstreamOverlayFeed(	Controller& controller,

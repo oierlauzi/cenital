@@ -7,16 +7,18 @@
 
 namespace Cenital::Control {
 
-template<typename R, typename... Args>
-using FnPtr = R(*)(Args...);
-
 template<typename R, typename T, typename... Args>
 using MemFnPtr = R(T::*)(Args...);
 
 template<typename R, typename T, typename... Args>
 using ConstMemFnPtr = R(T::*)(Args...) const;
 
-
+struct DefaultValidator {
+	template<typename... Args>
+	constexpr bool operator()(Args&&...) const noexcept{
+		return true;
+	}
+};
 
 
 
@@ -31,6 +33,15 @@ bool parse(	Zuazo::Utils::BufferView<const std::string> tokens,
 			std::tuple<Args...>& args);
 
 
+template<typename T, typename... Args, typename F, typename V>
+void invokeSetter(	F&& func,
+					V&& validate,
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response );
+
 template<typename T, typename... Args, typename F>
 void invokeSetter(	F&& func,
 					Controller& controller,
@@ -39,8 +50,9 @@ void invokeSetter(	F&& func,
 					size_t level,
 					Message& response );
 
-template<typename T, typename... Args>
+template<typename T, typename... Args, typename V>
 void invokeSetter(	MemFnPtr<void, T, Args...> func, 
+					V&& validate,
 					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
@@ -48,13 +60,22 @@ void invokeSetter(	MemFnPtr<void, T, Args...> func,
 					Message& response );
 
 template<typename T, typename... Args>
-void invokeSetter(	FnPtr<void, T&, Args...> func, 
+void invokeSetter(	MemFnPtr<void, T, Args...> func,
 					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
 					Message& response );
 
+
+template<typename R, typename T, typename... Args, typename F, typename V>
+void invokeGetter(	F&& func, 
+					V&& validate,
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response );
 
 template<typename R, typename T, typename... Args, typename F>
 void invokeGetter(	F&& func, 
@@ -64,8 +85,9 @@ void invokeGetter(	F&& func,
 					size_t level,
 					Message& response );
 
-template<typename R, typename T, typename... Args>
-void invokeGetter(	ConstMemFnPtr<R, T, Args...> func,
+template<typename R, typename T, typename... Args, typename V>
+void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
+					V&& validate,
 					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
@@ -73,12 +95,14 @@ void invokeGetter(	ConstMemFnPtr<R, T, Args...> func,
 					Message& response );
 
 template<typename R, typename T, typename... Args>
-void invokeGetter(	FnPtr<R, T&, Args...> func,
+void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
 					Controller& controller,
 					Zuazo::ZuazoBase& base, 
 					const Message& request,
 					size_t level,
 					Message& response );
+
+
 
 template<typename T, typename... Args>
 std::unique_ptr<Zuazo::ZuazoBase> invokeBaseConstructor(Zuazo::Instance& instance, 

@@ -50,8 +50,9 @@ inline bool parse(	Zuazo::Utils::BufferView<const std::string> tokens,
 
 
 
-template<typename T, typename... Args, typename F>
+template<typename T, typename... Args, typename F, typename V>
 inline void invokeSetter(	F&& func, 
+							V&& validate,
 							Controller&,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
@@ -71,95 +72,202 @@ inline void invokeSetter(	F&& func,
 		assert(typeid(base) == typeid(T));
 		T& element = static_cast<T&>(base);
 
-		//Elaborate the response
-		std::apply(
-			std::forward<F>(func),
-			std::tuple_cat(std::forward_as_tuple(element), std::move(args))
+		//Create the actual parameters. It includes
+		//the element as the first argument
+		auto parameters = std::tuple_cat(
+			std::forward_as_tuple(element), 
+			std::move(args)
 		);
-		response.setType(Message::Type::broadcast);
-		response.getPayload() = request.getPayload();
+
+		//Check if the parsed parameters are valid
+		const bool validation = std::apply(
+			std::forward<V>(validate),
+			parameters
+		);
+
+		if(validation) {
+			//Apply the mutation
+			std::apply(
+				std::forward<F>(func),
+				std::move(parameters)
+			);
+
+			//Elaborate the response
+			response.setType(Message::Type::broadcast);
+			response.getPayload() = request.getPayload();
+		}
 	}
 }
 
-template<typename T, typename... Args>
-inline void invokeSetter(	MemFnPtr<void, T, Args...> func, 
+template<typename T, typename... Args, typename F>
+inline void invokeSetter(	F&& func, 
 							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
-	invokeSetter<T, Args...>(std::mem_fn(func), controller, base, request, level, response);
+	invokeSetter<T, Args...>(
+		std::forward<F>(func),
+		DefaultValidator(),
+		controller,
+		base,
+		request,
+		level,
+		response
+	);
+}
+
+template<typename T, typename... Args, typename V>
+void invokeSetter(	MemFnPtr<void, T, Args...> func, 
+					V&& validate,
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
+{
+	invokeSetter<T, Args...>(
+		std::mem_fn(func),
+		std::forward<V>(validate),
+		controller,
+		base,
+		request,
+		level,
+		response
+	);
 }
 
 template<typename T, typename... Args>
-inline void invokeSetter(	FnPtr<void, T&, Args...> func, 
-							Controller& controller,
+void invokeSetter(	MemFnPtr<void, T, Args...> func,
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
+{
+	invokeSetter(
+		func,
+		DefaultValidator(),
+		controller,
+		base,
+		request,
+		level,
+		response
+	);
+}
+
+
+
+
+template<typename R, typename T, typename... Args, typename F, typename V>
+inline void invokeGetter(	F&& func, 
+							V&& validate,
+							Controller&,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
-	//Ref is used to force the generic expresion
-	invokeSetter<T, Args...>(std::cref(func), controller, base, request, level, response);
+	//Get the tokens from the request
+	const auto& payload = request.getPayload();
+	const Zuazo::Utils::BufferView<const std::string> tokens(
+		std::next(payload.data(), level),
+		payload.data() + payload.size()
+	);
+
+	//Try to parse the tokens
+	std::tuple<typename std::decay<Args>::type...> args;
+	if(parse(tokens, args)) {
+		assert(typeid(base) == typeid(T));
+		T& element = static_cast<T&>(base);
+
+		//Create the actual parameters. It includes
+		//the element as the first argument
+		auto parameters = std::tuple_cat(
+			std::forward_as_tuple(element), 
+			std::move(args)
+		);
+
+		//Check if the parsed parameters are valid
+		const bool validation = std::apply(
+			std::forward<V>(validate),
+			parameters
+		);
+
+		if(validation) {
+			//Perform the query
+			const auto ret = std::apply(
+				std::forward<F>(func),
+				std::move(parameters)
+			);
+
+			//Elaborate the response
+			response.setType(Message::Type::response);
+			response.getPayload() = { std::string(Zuazo::toString(ret)) };
+		}
+	}
 }
-
-
-
 
 template<typename R, typename T, typename... Args, typename F>
 inline void invokeGetter(	F&& func, 
-							Controller&,
+							Controller& controller,
 							Zuazo::ZuazoBase& base, 
 							const Message& request,
 							size_t level,
 							Message& response )
 {
-	//Get the tokens from the request
-	const auto& payload = request.getPayload();
-	const Zuazo::Utils::BufferView<const std::string> tokens(
-		std::next(payload.data(), level),
-		payload.data() + payload.size()
+	invokeGetter<R, T, Args...>(
+		std::forward<F>(func),
+		DefaultValidator(),
+		controller,
+		base,
+		request,
+		level,
+		response
 	);
+}
 
-	//Try to parse the tokens
-	std::tuple<typename std::decay<Args>::type...> args;
-	if(parse(tokens, args)) {
-		assert(typeid(base) == typeid(T));
-		T& element = static_cast<T&>(base);
-
-		//Elaborate the response
-		const auto ret = std::apply(
-			std::forward<F>(func),
-			std::tuple_cat(std::forward_as_tuple(element), std::move(args))
-		);
-		response.setType(Message::Type::response);
-		response.getPayload() = { std::string(Zuazo::toString(ret)) };
-	}
+template<typename R, typename T, typename... Args, typename V>
+void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
+					V&& validate,
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
+{
+	invokeGetter<R, T, Args...>(
+		std::mem_fn(func),
+		std::forward<V>(validate),
+		controller,
+		base,
+		request,
+		level,
+		response
+	);
 }
 
 template<typename R, typename T, typename... Args>
-inline void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
-							Controller& controller,
-							Zuazo::ZuazoBase& base, 
-							const Message& request,
-							size_t level,
-							Message& response )
+void invokeGetter(	ConstMemFnPtr<R, T, Args...> func, 
+					Controller& controller,
+					Zuazo::ZuazoBase& base, 
+					const Message& request,
+					size_t level,
+					Message& response )
 {
-	invokeGetter<R, T, Args...>(std::mem_fn(func), controller, base, request, level, response);
+	invokeGetter(
+		func,
+		DefaultValidator(),
+		controller,
+		base,
+		request,
+		level,
+		response
+	);
 }
 
-template<typename R, typename T, typename... Args>
-inline void invokeGetter(	FnPtr<void, T&, Args...> func, 
-							Controller& controller,
-							Zuazo::ZuazoBase& base, 
-							const Message& request,
-							size_t level,
-							Message& response )
-{
-	//Ref is used to force the generic expresion
-	invokeGetter<R, T, Args...>(std::cref(func), controller, base, request, level, response);
-}
+
 
 
 
