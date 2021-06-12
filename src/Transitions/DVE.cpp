@@ -178,6 +178,9 @@ private:
 			+viewportSize
 		);
 
+		//Const identity transform will be used for the static layer
+		const Math::Transformf identityTransform;
+
 		//Set next layer's postion if necessary
 		if(prevAnim) {
 			const auto pos = Math::lerp(Math::Vec2f(0), +axis, progress);
@@ -187,6 +190,8 @@ private:
 				Math::Vec3f(pos, 0)
 			);
 			prevSurface.setTransform(transform);
+		} else {
+			prevSurface.setTransform(identityTransform);
 		}
 		
 		//Set post layer's postion if necessary
@@ -198,6 +203,8 @@ private:
 				Math::Vec3f(pos, 0)
 			);
 			postSurface.setTransform(transform);
+		} else {
+			postSurface.setTransform(identityTransform);
 		}
 
 		//Reorder if necessary. If both are animated, we dont care about the ordering
