@@ -82,46 +82,50 @@ float lumaKeyAlpha(in LumaKeyParameters parameters, in vec3 keyColor) {
 //Software Chroma Keying in an Imersive Virtual Environment, F. van den Bergh & V. Lalioti
 //https://github.com/CasparCG/server/blob/master/src/accelerator/ogl/image/shader.frag
 
-//Returns the absolute distance between two angles.
-//Half specifies the units of the inputs, so that half
-//equals a half turn (pi rad, 180 deg, 0.5 turns...).
-//Inputs must be less or equal than one turn appart.
-//At most, the distance between to angles will be "half"
-float angleDistance(float a, float b, float halfTurn) {
-	return halfTurn - abs(abs(b - a) - halfTurn);
-}
-
 float chromaKeyAlpha(in ChromaKeyParameters parameters, in vec3 keyColor) {
 	//Convert the color into hsv
 	const vec3 hsvColor = rgb2hsv(keyColor);
+	const float halfHue = 0.5;
 
-	//Calculate the deltas and the lower and upper thresholds
-	const vec3 deltas = vec3(
-		angleDistance(hsvColor.x, parameters.hue, 180.0), //rgb2hsv retunrs hue in [0, 360]
-		hsvColor.y,
+	//Calculate the scores. High values involve low alphas
+	//The hue is the complemented angle difference, this is,
+	//if both angles are equal, a score of 180deg is given. If
+	//they are 180deg appart, which is the maximum possible, the
+	//score will be 0.
+	const vec3 scores = vec3(
+		abs(abs(hsvColor.x - parameters.hue) - halfHue),
+		hsvColor.y, 
 		hsvColor.z
 	);
-	const vec3 threshlold0 = vec3(
-		parameters.deltaHueThreshold,
-		parameters.saturationThreshold - parameters.saturationSmoothness,
-		parameters.valueThreshold - parameters.valueSmoothness
-	);
-	const vec3 threshlold1 = vec3(
-		parameters.deltaHueThreshold + parameters.deltaHueSmoothness,
+
+	//Obtain the lower and upper thresholds
+	//As hue is inverted, sum the smoothness in
+	//the upper thresholds instead of subtracting them in the
+	//lower threshold.
+	const vec3 threshold = vec3(
+		halfHue - parameters.deltaHueThreshold, //Complementary
 		parameters.saturationThreshold,
 		parameters.valueThreshold
 	);
+	const vec3 smoothness = vec3(
+		parameters.deltaHueSmoothness,
+		parameters.saturationSmoothness,
+		parameters.valueSmoothness
+	);
+
+	const vec3 threshlold0 = threshold - smoothness;
+	const vec3 threshlold1 = threshold;
 
 	//Calculate the alphas related to each of the parameters
 	//Only use smoothstep if its behaviour is defined (edge0 < edge1)
 	const vec3 alphas = mix(
-		step(threshlold0, deltas),
-		smoothstep(threshlold0, threshlold1, deltas),
+		step(threshold, scores),
+		smoothstep(threshlold0, threshlold1, scores),
 		lessThan(threshlold0, threshlold1)
 	);
 
 	//The result will be the least limiting one
-	return max(alphas.x, max(alphas.y, alphas.z));
+	return 1.0f - min(alphas.x, min(alphas.y, alphas.z));
 }
 
 float linearKeyAlpha(in int type, in vec4 keyColor, in vec4 fillColor) {
@@ -181,7 +185,7 @@ void main() {
 	} 
 
 	//Compute the final color
-	out_color = vec4(fillColor.rgb, alpha);
+	out_color = vec4(fillColor.rgb, alpha); 
 	out_color = frame_premultiply_alpha(out_color);
 }
  

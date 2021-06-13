@@ -361,15 +361,20 @@ struct KeyerImpl {
 		}
 
 		void updateChromaKeyHueUniform(float hue) {
-			hue = Math::mod(Math::mod(hue, 360.0f) + 360.0f, 360.0f); //First positive turn
+			constexpr auto deg2turn = 1.0f/360.0f;
+			hue = Math::mod(Math::mod(deg2turn*hue, 1.0f) + 1.0f, 1.0f); //First positive turn
 			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_HUE, hue);
 		}
 
 		void updateChromaKeyHueThresholdUniform(float threshold) {
+			constexpr auto deg2turn = 1.0f/360.0f;
+			threshold *= deg2turn;
 			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_HUE_THRESHOLD, threshold);
 		}
 
 		void updateChromaKeyHueSmoothnessUniform(float smoothness) {
+			constexpr auto deg2turn = 1.0f/360.0f;
+			smoothness *= deg2turn;
 			updateFragmentUniform(LAYERDATA_UNIFORM_CHROMAKEY_HUE_SMOOTHNESS, smoothness);
 		}
 
