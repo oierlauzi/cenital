@@ -185,7 +185,10 @@ struct MixEffectImpl {
 		referenceCompositor.setViewportSizeCallback(
 			std::bind(&MixEffectImpl::viewportSizeCallback, this, std::placeholders::_2)
 		);
-		
+
+		//Define the camera settings
+		configureCamera(referenceCompositor.getViewportSize());
+
 		//Configure the layers
 		configureLayers(false);
 	}
@@ -800,6 +803,27 @@ private:
 		}
 	}
 
+	void configureCamera(Math::Vec2f viewportSize) {
+		constexpr auto verticalFov = Math::deg2rad(60.0f);
+		const auto distance = viewportSize.y / (2.0f * Math::tan(verticalFov/2.0f));
+
+		const Compositor::Camera camera(
+			Math::Transformf(Math::Vec3f(0.0f, 0.0f, -distance)),
+			Compositor::Camera::Projection::frustum,
+			1.0f,
+			std::numeric_limits<float>::infinity(),
+			verticalFov
+		);
+
+		for(auto& compositor : intermediateCompositors) {
+			compositor.setCamera(camera);
+		}
+
+		for(auto& compositor : compositors) {
+			compositor.setCamera(camera);
+		}
+	}
+
 	void finishTransition() {
 		auto* transition = getSelectedTransition();
 
@@ -828,6 +852,8 @@ private:
 				transition.second->setSize(size);
 			}
 		}
+
+		configureCamera(size);
 	}
 
 

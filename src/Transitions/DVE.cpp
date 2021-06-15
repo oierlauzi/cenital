@@ -250,7 +250,7 @@ private:
 		if(progress > 0.5f) {
 			//Post surface is only visible on the second half. Rotation angle is inverted
 			//so that the result is not flipped
-			const float rotationAngle = (1-progress)*M_PI;
+			const float rotationAngle = (progress + 1.0f)*M_PI;
 			const Math::Transformf transform(
 				Math::Vec3f(0),
 				Math::rotateAbout(axis, rotationAngle, Math::normalized),
