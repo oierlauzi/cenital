@@ -44,11 +44,15 @@ void WebSocketServer::startAccept() {
 }
 
 void WebSocketServer::send(SessionPtr connection, const std::string& msg) {
-	m_socket.send(
-		std::move(connection), 
-		msg, 
-		websocketpp::frame::opcode::TEXT
-	);
+	auto lock = connection.lock();
+	if(lock) {
+		//Only send if connection exists
+		m_socket.send(
+			std::move(connection), 
+			msg, 
+			websocketpp::frame::opcode::TEXT
+		);
+	}
 }
 	
 }
