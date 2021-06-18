@@ -42,71 +42,70 @@ static void setShape(	Controller&,
 						Message& response ) 
 {
 	const auto& tokens = request.getPayload();
-	if(tokens.size() == level + 1) {
-		std::vector<Shape> contours;
-		std::vector<Shape::value_type> contourPoints;
-		bool success = true;
-		
-		//Each contour is a space separated list of 2D points
-		//Contours are separated from one another by semicolons
-		std::string_view contoursData = tokens[level];
-		while(!contoursData.empty() && success) {
-			//Determine the limits
-			const auto count = contoursData.find(';'); //The contour separator
-			auto contourData = contoursData.substr(0, count);
 
-			//Pop out the read characters
-			if(count < contoursData.size()) {
-				contoursData.remove_prefix(count + 1);
-			} else {
-				//No more contours
-				contoursData = std::string_view();
-			}
+	//Each token will be a disctinct contour
+	std::vector<Shape> contours;
+	std::vector<Shape::value_type> contourPoints;
+	bool success = true;
+	size_t read;
+	while(level < tokens.size() && success) {
+		std::string_view token = tokens[level++];
 
-			//Read all the available points
-			contourPoints.clear();
-			while(!contourData.empty() && success) {
-				contourPoints.emplace_back();
-				const size_t read = fromString(contourData, contourPoints.back());
+		//Read all the available points
+		contourPoints.clear();
+		while(!token.empty() && success) {
+			contourPoints.emplace_back();
+			read = fromString(token, contourPoints.back());
 
-				//Determine if it was successful. If so, pop out the parsed
-				//characters
-				if(read) {
-					contourData.remove_prefix(read);
-				} else {
-					success = false;
+			//Determine if it was successful. If so, pop out the parsed
+			//characters
+			if(read) {
+				token.remove_prefix(read);
+
+				//If not empty, try to obtain the separator:
+				if(!token.empty()) {
+					char separator;
+					read = fromString(token, separator);
+					if(read && separator == ';') {
+						token.remove_prefix(read);
+					} else {
+						success = false;
+					}
 				}
-			}			
 
-			//Check if the point count is correct, it must be divisible by 3
-			success = success && (contourPoints.size() % Shape::degree()) == 0;
-
-			//If all went OK, add the new contour to the list
-			if(success) {
-				//As the multiple of degree constrain is satisfied at this point,
-				//It is safe to cast the data to a packed array of arrays
-				assert((contourPoints.size() % Shape::degree()) == 0);
-
-				contours.emplace_back(
-					Utils::BufferView<const Shape::segment_data>(
-						reinterpret_cast<const Shape::segment_data*>(contourPoints.data()),
-						contourPoints.size() / Shape::degree()
-					)
-				);
+			} else {
+				success = false;
 			}
-		}
+		}			
 
-		//Check if everithing succeeded
+		//Check if the point count is correct, it must be divisible by 3
+		success = success && (contourPoints.size() % Shape::degree()) == 0;
+
+		//If all went OK, add the new contour to the list
 		if(success) {
-			//Perform mutations
-			assert(typeid(base) == typeid(Keyer));
-			Keyer& keyer = static_cast<Keyer&>(base);
-			keyer.setCrop(std::move(contours));
+			//As the multiple of degree constrain is satisfied at this point,
+			//It is safe to cast the data to a packed array of arrays
+			assert((contourPoints.size() % Shape::degree()) == 0);
 
-			//Elaborate the response
-			response.setType(Message::Type::broadcast);
-			response.getPayload() = tokens;
+			contours.emplace_back(
+				Utils::BufferView<const Shape::segment_data>(
+					reinterpret_cast<const Shape::segment_data*>(contourPoints.data()),
+					contourPoints.size() / Shape::degree()
+				)
+			);
 		}
+	}
+
+	//Check if everithing succeeded
+	if(success) {
+		//Perform mutations
+		assert(typeid(base) == typeid(Keyer));
+		Keyer& keyer = static_cast<Keyer&>(base);
+		keyer.setCrop(std::move(contours));
+
+		//Elaborate the response
+		response.setType(Message::Type::broadcast);
+		response.getPayload() = tokens;
 	}
 }
 
@@ -123,27 +122,29 @@ static void getShape(	Controller&,
 		const Keyer& keyer = static_cast<const Keyer&>(base);
 		const auto& contours = keyer.getCrop();
 
-		std::stringstream ss;
-		for(auto contourIte = contours.cbegin(); contourIte != contours.cend(); ++contourIte) {
-			//Add the separator to all elements except the first one
-			if(contourIte != contours.cbegin()) {
-				ss << ';';
-			}
+		//Elaborate the response
+		response.setType(Message::Type::response);
+		auto& payload = response.getPayload();
+		payload.clear();
+		payload.reserve(contours.size());
+		std::transform(
+			contours.cbegin(), contours.cend(),
+			std::back_inserter(payload),
+			[] (const Shape& shape) -> std::string {
+				std::stringstream ss;
+				for(auto ite = shape.cbegin(); ite != shape.cend(); ++ite) {
+					//Add the separator to all elements except the first one
+					if(ite != shape.cbegin()) {
+						ss << ';';
+					}
 
-			for(auto pointIte = contourIte->cbegin(); pointIte != contourIte->cend(); ++pointIte) {
-				//Add the separator to all elements except the first one
-				if(pointIte != contourIte->cbegin()) {
-					ss << ' ';
+					//Append this point
+					ss << *ite;
 				}
 
-				//Append this point
-				ss << *pointIte;
+				return ss.str();
 			}
-		}
-
-		response.setType(Message::Type::response);
-		response.getPayload() = { ss.str() };
-
+ 		);
 	}
 }
 
