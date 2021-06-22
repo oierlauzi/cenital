@@ -534,7 +534,7 @@ inline void registerVideoModeCommands(	Node& node,
 
 	if(test(any, VideoModeAttributes::frameRate)) {
 		node.addPath(
-			parentPath + ":frameRate",
+			parentPath + ":frame-rate",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::frameRate) ? setVideoModeFrameRate<T> : nullptr,
 				test(rd, VideoModeAttributes::frameRate) ? getVideoModeFrameRate<T> : nullptr
@@ -552,7 +552,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::pixelAspectRatio)) {
 		node.addPath(
-			parentPath + ":pixelAspectRatio",
+			parentPath + ":pixel-aspect-ratio",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::pixelAspectRatio) ? setVideoModePixelAspectRatio<T> : nullptr,
 				test(rd, VideoModeAttributes::pixelAspectRatio) ? getVideoModePixelAspectRatio<T> : nullptr
@@ -561,7 +561,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorPrimaries)) {
 		node.addPath(
-			parentPath + ":colorPrimaries",
+			parentPath + ":color-primaries",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorPrimaries) ? setVideoModeColorPrimaries<T> : nullptr,
 				test(rd, VideoModeAttributes::colorPrimaries) ? getVideoModeColorPrimaries<T> : nullptr,
@@ -571,7 +571,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorModel)) {
 		node.addPath(
-			parentPath + ":colorModel",
+			parentPath + ":color-model",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorModel) ? setVideoModeColorModel<T> : nullptr,
 				test(rd, VideoModeAttributes::colorModel) ? getVideoModeColorModel<T> : nullptr,
@@ -581,7 +581,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorTransferFunction)) {
 		node.addPath(
-			parentPath + ":colorTransferFunction",
+			parentPath + ":color-transfer-function",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorTransferFunction) ? setVideoModeColorTransferFunction<T> : nullptr,
 				test(rd, VideoModeAttributes::colorTransferFunction) ? getVideoModeColorTransferFunction<T> : nullptr,
@@ -591,7 +591,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorSubsampling)) {
 		node.addPath(
-			parentPath + ":colorSubsampling",
+			parentPath + ":color-subsampling",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorSubsampling) ? setVideoModeColorSubsampling<T> : nullptr,
 				test(rd, VideoModeAttributes::colorSubsampling) ? getVideoModeColorSubsampling<T> : nullptr,
@@ -601,7 +601,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorRange)) {
 		node.addPath(
-			parentPath + ":colorRange",
+			parentPath + ":color-range",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorRange) ? setVideoModeColorRange<T> : nullptr,
 				test(rd, VideoModeAttributes::colorRange) ? getVideoModeColorRange<T> : nullptr,
@@ -611,7 +611,7 @@ inline void registerVideoModeCommands(	Node& node,
 	}
 	if(test(any, VideoModeAttributes::colorFormat)) {
 		node.addPath(
-			parentPath + ":colorFormat",
+			parentPath + ":color-format",
 			makeAttributeNode(
 				test(wr, VideoModeAttributes::colorFormat) ? setVideoModeColorFormat<T> : nullptr,
 				test(rd, VideoModeAttributes::colorFormat) ? getVideoModeColorFormat<T> : nullptr,

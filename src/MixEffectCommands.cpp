@@ -818,11 +818,8 @@ void MixEffect::registerCommands(Control::Controller& controller) {
 		VideoModeAttributes::colorTransferFunction |
 		VideoModeAttributes::colorFormat ;
 	constexpr auto videoModeRd = 
-		VideoModeAttributes::resolution |
-		VideoModeAttributes::pixelAspectRatio |
-		VideoModeAttributes::colorPrimaries |
-		VideoModeAttributes::colorTransferFunction |
-		VideoModeAttributes::colorFormat ;
+		VideoModeAttributes::all &
+		~VideoModeAttributes::frameRate ;
 	registerVideoModeCommands<MixEffect>(configNode, videoModeWr, videoModeRd);
 
 	constexpr auto videoScalingWr = 

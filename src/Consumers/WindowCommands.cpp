@@ -266,7 +266,7 @@ void Window::registerCommands(Controller& controller) {
 													Consumers::getPosition ) },
 		{ "opacity",			makeAttributeNode(	Consumers::setOpacity,
 													Consumers::getOpacity ) },
-		{ "resizeable",			makeAttributeNode(	Consumers::setResizeable,
+		{ "resizable",			makeAttributeNode(	Consumers::setResizeable,
 													Consumers::getResizeable ) },
 		{ "decorated",			makeAttributeNode(	Consumers::setDecorated,
 													Consumers::getDecorated ) },
@@ -283,11 +283,7 @@ void Window::registerCommands(Controller& controller) {
 		VideoModeAttributes::colorTransferFunction |
 		VideoModeAttributes::colorFormat ;
 	constexpr auto videoModeRd = 
-		VideoModeAttributes::frameRate |
-		VideoModeAttributes::resolution |
-		VideoModeAttributes::colorPrimaries |
-		VideoModeAttributes::colorTransferFunction |
-		VideoModeAttributes::colorFormat ;
+		VideoModeAttributes::all ;
 	registerVideoModeCommands<Window>(configNode, videoModeWr, videoModeRd);
 
 	constexpr auto videoScalingWr = 

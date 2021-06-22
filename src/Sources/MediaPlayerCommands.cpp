@@ -147,6 +147,17 @@ static void getClipTime(Controller& controller,
 	);
 }
 
+static void getClipDuration(Controller& controller,
+							ZuazoBase& base,
+							const Message& request,
+							size_t level,
+							Message& response ) 
+{
+	invokeGetter<Duration, MediaPlayer::Clip>(
+		&ClipBase::getDuration,
+		controller, base, request, level, response
+	);
+}
 
 
 
@@ -290,17 +301,19 @@ static void unsetCurrentClip(	Controller& controller,
 
 void MediaPlayer::registerCommands(Controller& controller) {
 	Node clipConfigNode({
-		{ "state", 	makeAttributeNode(	setClipState,
-										getClipState,
-										enumClipState )},
-		{ "repeat", makeAttributeNode(	setClipRepeat,
-										getClipRepeat,
-										enumClipRepeat,
-										unsetClipRepeat )},
-		{ "speed", 	makeAttributeNode(	setClipSpeed,
-										getClipSpeed )},
-		{ "time", 	makeAttributeNode(	setClipTime,
-										getClipTime )},
+		{ "state", 		makeAttributeNode(	setClipState,
+											getClipState,
+											enumClipState )},
+		{ "repeat", 	makeAttributeNode(	setClipRepeat,
+											getClipRepeat,
+											enumClipRepeat,
+											unsetClipRepeat )},
+		{ "speed", 		makeAttributeNode(	setClipSpeed,
+											getClipSpeed )},
+		{ "time", 		makeAttributeNode(	setClipTime,
+											getClipTime )},
+		{ "duration", 	makeAttributeNode(	{},
+											getClipDuration )},
 
 	});
 
