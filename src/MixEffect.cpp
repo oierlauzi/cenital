@@ -424,16 +424,26 @@ struct MixEffectImpl {
 		backgroundLayers[1].getInput().setSource(src0);
 
 		//Change the states of the overlays
+		bool overlaysChanged = false;
 		for(auto& overlaySlot : overlays) {
 			for(auto& overlay : overlaySlot) {
 				if(overlay.getTransition()) {
 					overlay.setVisible(!overlay.getVisible());
+					overlaysChanged = true;
 				}
 			}
 		}
 
 		//Reset the transition
-		setTransitionBar(0.0f);
+		auto* transition = getSelectedTransition();	
+		if(transition) {
+			transition->stop();
+		}
+
+		//If any overlay has mutated its state, reconfigure the layers 
+		if(overlaysChanged || isTransitionConfigured()) {
+			configureLayers(false);
+		}
 	}
 
 	void transition() {
