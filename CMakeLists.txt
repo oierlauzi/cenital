@@ -11,10 +11,6 @@ project(cenital
 add_subdirectory(${PROJECT_SOURCE_DIR}/shaders/)
 #add_subdirectory(${PROJECT_SOURCE_DIR}/doc/doxygen/)
 
-#3rd Party dependencies
-find_package(ImageMagick)
-find_package(ImageMagick COMPONENTS Magick++)
-
 
 #Set compiler's options
 set(CMAKE_CXX_STANDARD 17)
@@ -33,9 +29,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${SHADER_INCLUDE_DIR}/)
 include_directories(${ImageMagick_INCLUDE_DIRS})
 target_link_libraries(
 	${PROJECT_NAME} PUBLIC 
-	zuazo zuazo-window zuazo-ffmpeg zuazo-magick zuazo-ndi zuazo-compositor
+	zuazo zuazo-window zuazo-ffmpeg zuazo-ndi zuazo-compositor
 	avutil avformat avcodec swscale
-	glfw pthread dl ${ImageMagick_LIBRARIES}
+	glfw pthread dl
 )
 
 # Install the executable

@@ -20,7 +20,7 @@
 #include <zuazo/Instance.h>
 #include <zuazo/Modules/Window.h>
 #include <zuazo/Modules/FFmpeg.h>
-#include <zuazo/Modules/Magick.h>
+//#include <zuazo/Modules/Magick.h> //Currently not used
 #include <zuazo/Modules/NDI.h>
 #include <zuazo/Modules/Compositor.h>
 
@@ -205,7 +205,7 @@ int main(int argc, const char* const* argv) {
 	Zuazo::Instance::ApplicationInfo::Modules modules {
 		Zuazo::Modules::Window::get(),
 		Zuazo::Modules::FFmpeg::get(),
-		Zuazo::Modules::Magick::get(),
+		//Zuazo::Modules::Magick::get(),
 		Zuazo::Modules::NDI::get(),
 		Zuazo::Modules::Compositor::get(),
 	};
